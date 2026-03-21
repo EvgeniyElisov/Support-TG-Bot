@@ -36,12 +36,10 @@ coverage/
 .DS_Store
 Thumbs.db
 
-# Editors
+# Editors / Cursor
 .idea/
+.vscode/
+.cursor/
 *.swp
 *.swo
 *~
-
-# Optional local tooling
-.vscode/*
-!.vscode/extensions.json
