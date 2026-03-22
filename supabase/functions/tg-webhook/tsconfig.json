@@ -1,4 +1,11 @@
 {
   "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "baseUrl": "..",
+    "paths": {
+      "@supabase/supabase-js": ["node_modules/@supabase/supabase-js"],
+      "grammy": ["node_modules/grammy"]
+    }
+  },
   "include": ["./**/*.ts", "../global.d.ts"]
 }
