@@ -11,7 +11,7 @@ function getIncomingPreview(ctx: Context): string {
   if (!msg) return "(нет message в апдейте)"
   if (msg.text) return msg.text
   if ("caption" in msg && msg.caption) return msg.caption
-  return "(не текст: фото, стикер и т.д.)"
+  return "(Не текст: фото, стикер и т.д.)"
 }
 
 // Собираем Bot, вешаем обработчики и возвращаем HTTP-обёртку под Deno.serve (адаптер "std/http").
@@ -19,8 +19,12 @@ function createWebhookHandler(token: string) {
   const bot = new Bot(token)
 
   async function onMessageOrEdited(ctx: Context) {
-    // Полный Update — в логах Supabase: Dashboard → Edge Functions → Logs
-    console.log("[tg-webhook] входящий апдейт:", JSON.stringify(ctx.update))
+    // Текст/подпись сообщения — в логах Supabase: Dashboard → Edge Functions → Logs
+    const from = ctx.from
+    const fromLabel = from
+      ? `${from.username ? ` @${from.username}` : ""} ${[from.first_name, from.last_name].filter(Boolean).join(" ")}`.trim()
+      : "(Отправитель неизвестен)"
+    console.log("Входящee сообщение от", fromLabel, ":", getIncomingPreview(ctx))
     if (!ctx.msg) return
 
     const preview = getIncomingPreview(ctx)
