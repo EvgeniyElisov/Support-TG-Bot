@@ -23,8 +23,9 @@
 supabase/
   migrations/          # SQL-миграции (таблица messages и политики RLS)
   functions/
-    tg-webhook/        # Edge Function: вебхук бота
-      index.ts
+    tg-webhook/        # Edge Function: вебхук бота (слои по C4: HTTP → grammY → persist / preview)
+      index.ts         # точка входа
+      components/      # модули вебхука
       deno.json        # import map (grammy, supabase-js)
   config.toml          # настройки проекта и функции tg-webhook
 ```
