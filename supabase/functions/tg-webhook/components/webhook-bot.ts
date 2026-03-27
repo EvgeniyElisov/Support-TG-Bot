@@ -6,6 +6,12 @@ import { persistIncomingMessage } from "./persist-message.ts"
 export function createWebhookHandler(token: string) {
   const bot = new Bot(token)
 
+  function isStartCommand(ctx: Context): boolean {
+    if (!ctx.msg || !("text" in ctx.msg) || !ctx.msg.text) return false
+    const command = ctx.msg.text.trim().split(/\s+/)[0]
+    return command === "/start" || command.startsWith("/start@")
+  }
+
   async function onMessageOrEdited(ctx: Context) {
     const from = ctx.from
     const fromLabel = from
@@ -13,6 +19,11 @@ export function createWebhookHandler(token: string) {
       : "(Отправитель неизвестен)"
     console.log("Входящее сообщение от", fromLabel, ":", getIncomingPreview(ctx))
     if (!ctx.msg) return
+
+    if (isStartCommand(ctx)) {
+      await ctx.reply("Здравствуйте! Опишите вашу проблему, и мы поможем.")
+      return
+    }
 
     await persistIncomingMessage(ctx.msg)
 

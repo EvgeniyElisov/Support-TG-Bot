@@ -1,6 +1,8 @@
 import type { MessageRecord } from "../model/types";
 
-export function getDisplayName(message: MessageRecord): string {
+type NameSource = Pick<MessageRecord, "username" | "first_name" | "last_name">;
+
+export function getDisplayName(message: NameSource): string {
   if (message.username) {
     return `@${message.username}`;
   }
