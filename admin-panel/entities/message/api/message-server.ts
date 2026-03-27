@@ -61,6 +61,8 @@ export async function getMessagesByChatId(
     .from("messages")
     .select("id, chat_id, username, first_name, last_name, created_at, text_content, caption")
     .eq("chat_id", chatId)
+    // Hide Telegram /start commands in admin history.
+    .or("text_content.is.null,text_content.not.ilike./start%")
     .order("created_at", { ascending: false })
     .range(from, to);
 
