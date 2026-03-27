@@ -13,7 +13,7 @@ Person(user, "Пользователь Telegram", "Клиент Telegram")
 System_Boundary(support, "Support TG Bot") {
   Container(webhook, "tg-webhook", "Deno / Supabase Edge Function", "Вебхук grammY: приём Update, бизнес-логика, ответ в чат")
   ContainerDb(db, "PostgreSQL", "Supabase", "Таблица public.messages, RLS (чтение для клиентов)")
-  Container(admin, "admin-panel", "Next.js", "Веб-интерфейс (заготовка; чтение сообщений через anon при настройке)")
+  Container(admin, "admin-panel", "Next.js App Router", "SSR-веб-интерфейс: чтение последних сообщений из public.messages через Supabase anon key")
 }
 
 System_Ext(telegram, "Telegram Bot API", "Внешняя система")
@@ -23,8 +23,6 @@ Rel(user, telegram, "Чат с ботом")
 Rel(telegram, webhook, "POST /functions/v1/tg-webhook", "Update JSON")
 Rel(webhook, telegram, "Bot API")
 Rel(webhook, db, "upsert messages", "supabase-js, service_role")
-Rel(admin, db, "select messages", "Supabase client, anon (политика RLS)")
+Rel(admin, db, "select последних сообщений", "supabase-js, anon (политика RLS)")
 Rel(webhook, supabase_host, "Развёртывание и env")
 ```
-
-**Замечание:** **admin-panel** в репозитории — заготовка Next.js; на диаграмме отражена как планируемый потребитель read-only доступа к БД.
