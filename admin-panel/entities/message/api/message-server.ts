@@ -15,7 +15,7 @@ type MessagePageData = {
 };
 
 export async function getDialogsAndStats(limit: number): Promise<DialogsAndStatsData> {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
 
   const [{ data: dialogs, error: dialogsError }, { data: stats, error: statsError }] =
     await Promise.all([
@@ -56,7 +56,7 @@ export async function getMessagesByChatId(
   const from = (page - 1) * pageSize;
   const to = from + pageSize - 1;
 
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase
     .from("messages")
     .select("id, chat_id, username, first_name, last_name, created_at, text_content, caption")

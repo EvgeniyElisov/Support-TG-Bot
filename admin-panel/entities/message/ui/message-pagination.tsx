@@ -11,8 +11,8 @@ export function MessagePagination({
   currentPage,
   totalPages,
 }: MessagePaginationProps) {
-  const prevPageHref = `/?chat=${chatId}&page=${Math.max(1, currentPage - 1)}`;
-  const nextPageHref = `/?chat=${chatId}&page=${Math.min(totalPages, currentPage + 1)}`;
+  const prevPageHref = `/dashboard?chat=${chatId}&page=${Math.max(1, currentPage - 1)}`;
+  const nextPageHref = `/dashboard?chat=${chatId}&page=${Math.min(totalPages, currentPage + 1)}`;
 
   return (
     <footer className="mt-4 flex items-center justify-between rounded-2xl border border-zinc-700/60 bg-zinc-900/80 p-3 text-sm shadow-md shadow-black/20">

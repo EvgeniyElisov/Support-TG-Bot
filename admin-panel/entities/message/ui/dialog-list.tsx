@@ -25,7 +25,7 @@ export function DialogList({ dialogs, selectedChatId }: DialogListProps) {
         return (
           <li key={dialog.chat_id}>
             <Link
-              href={`/?chat=${dialog.chat_id}&page=1`}
+              href={`/dashboard?chat=${dialog.chat_id}&page=1`}
               className={`block rounded-xl border p-3 transition-all ${
                 isActive
                   ? "border-indigo-400/80 bg-linear-to-br from-indigo-500 to-violet-500 text-white shadow-lg shadow-indigo-900/40"

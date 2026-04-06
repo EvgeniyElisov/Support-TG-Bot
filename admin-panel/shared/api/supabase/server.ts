@@ -1,9 +1,10 @@
-import { createClient } from "@supabase/supabase-js";
+import { createServerClient } from "@supabase/ssr";
+import { cookies } from "next/headers";
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-export function createSupabaseServerClient() {
+function requireSupabaseEnv() {
   if (!supabaseUrl) {
     throw new Error("NEXT_PUBLIC_SUPABASE_URL is not set");
   }
@@ -12,5 +13,31 @@ export function createSupabaseServerClient() {
     throw new Error("NEXT_PUBLIC_SUPABASE_ANON_KEY is not set");
   }
 
-  return createClient(supabaseUrl, supabaseAnonKey);
+  return { supabaseUrl, supabaseAnonKey };
+}
+
+/**
+ * Supabase для Server Components, Server Actions и Route Handlers.
+ * Сессия читается и пишется через cookie Next.js (в Server Actions setAll сработает).
+ */
+export async function createSupabaseServerClient() {
+  const { supabaseUrl: url, supabaseAnonKey: key } = requireSupabaseEnv();
+  const cookieStore = await cookies();
+
+  return createServerClient(url, key, {
+    cookies: {
+      getAll() {
+        return cookieStore.getAll();
+      },
+      setAll(cookiesToSet) {
+        try {
+          cookiesToSet.forEach(({ name, value, options }) => {
+            cookieStore.set(name, value, options);
+          });
+        } catch {
+          // В RSC cookie часто только для чтения — refresh делает middleware.
+        }
+      },
+    },
+  });
 }
