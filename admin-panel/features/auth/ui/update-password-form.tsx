@@ -29,7 +29,7 @@ export function UpdatePasswordForm() {
       <h2 className="mb-2 text-center text-sm font-semibold uppercase tracking-wide text-zinc-400">
         Новый пароль
       </h2>
-      <p className="mb-2 text-center text-xs text-zinc-500">
+      <p className="mb-2 text-center text-xs text-zinc-400">
         Придумайте новый пароль для входа в панель.
       </p>
 
