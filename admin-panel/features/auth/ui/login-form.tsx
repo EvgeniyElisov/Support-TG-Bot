@@ -5,7 +5,10 @@ import toast from "react-hot-toast";
 
 import { loginAction, type LoginActionState } from "../api/login";
 
+import { ForgotPasswordForm } from "./forgot-password-form";
+
 export function LoginForm() {
+  const [view, setView] = useState<"login" | "forgot">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [state, formAction, isPending] = useActionState<LoginActionState, FormData>(
@@ -18,8 +21,15 @@ export function LoginForm() {
     toast.error(state.error, { id: "login-error" });
   }, [state?.error]);
 
+  if (view === "forgot") {
+    return <ForgotPasswordForm onBack={() => setView("login")} />;
+  }
+
   return (
     <form className="flex flex-col gap-4" action={formAction} noValidate>
+      <h2 className="mb-2 text-center text-sm font-semibold uppercase tracking-wide text-zinc-400">
+        Учётные данные
+      </h2>
       <div className="flex flex-col gap-2">
         <label className="text-sm font-medium text-zinc-400" htmlFor="login-email">
           Email
@@ -54,6 +64,16 @@ export function LoginForm() {
           type="password"
           value={password}
         />
+      </div>
+
+      <div className="flex justify-end">
+        <button
+          className="text-sm text-indigo-400/90 transition hover:text-indigo-300 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400/60"
+          onClick={() => setView("forgot")}
+          type="button"
+        >
+          Забыли пароль?
+        </button>
       </div>
 
       <button
