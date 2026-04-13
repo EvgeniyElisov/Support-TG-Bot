@@ -1,2 +1,6 @@
-export { getDialogsAndStats, getMessagesByChatId } from "./message-server";
+export {
+  getDialogsAndStats,
+  getMessageDialogByChatId,
+  getMessagesByChatId,
+} from "./message-server";
 export { getManagersDirectory } from "./manager-directory-server";

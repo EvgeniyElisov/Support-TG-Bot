@@ -8,6 +8,22 @@ export function getSingleSearchParam(
   return Array.isArray(value) ? value[0] : value;
 }
 
+import type { DialogStatusFilter } from "../model/dialog-status";
+import { DIALOG_STATUSES } from "../model/dialog-status";
+
+export function parseDialogStatusFilter(value: string | undefined): DialogStatusFilter {
+  if (!value) {
+    return "all";
+  }
+  if (value === "all") {
+    return "all";
+  }
+  if ((DIALOG_STATUSES as readonly string[]).includes(value)) {
+    return value as DialogStatusFilter;
+  }
+  return "all";
+}
+
 export function parsePositiveInteger(value: string | undefined): number | null {
   if (!value) {
     return null;

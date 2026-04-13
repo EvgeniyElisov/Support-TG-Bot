@@ -10,7 +10,7 @@ type ViewProps = {
 
 export function View({ data }: ViewProps) {
   if (!data.selectedDialog) {
-    return <EmptyState stats={data.stats} />;
+    return <EmptyState stats={data.stats} statusFilter={data.statusFilter} />;
   }
 
   return (
@@ -28,6 +28,8 @@ export function View({ data }: ViewProps) {
           totalPages={data.totalPages}
           managers={data.managers}
           sessionUserId={data.sessionUserId}
+          canReply={data.canReply}
+          statusFilter={data.statusFilter}
         />
       </div>
     </div>

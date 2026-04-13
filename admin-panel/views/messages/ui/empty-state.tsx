@@ -1,16 +1,23 @@
 import type { MessageStatsRecord } from "@/entities/message/model/types";
+import type { DialogStatusFilter } from "@/entities/message/model/dialog-status";
 
 import { MessageStatsBar } from "@/entities/message/ui";
 
+import { DialogStatusFilterBar } from "./dialog-status-filter";
+
 type EmptyStateProps = {
   stats: MessageStatsRecord;
+  statusFilter: DialogStatusFilter;
 };
 
-export function EmptyState({ stats }: EmptyStateProps) {
+export function EmptyState({ stats, statusFilter }: EmptyStateProps) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="shrink-0 border-b border-white/10 px-4 py-5 sm:px-6 lg:px-8">
         <MessageStatsBar stats={stats} />
+      </div>
+      <div className="shrink-0 border-b border-white/10 px-4 py-4 sm:px-6 lg:px-8">
+        <DialogStatusFilterBar active={statusFilter} selectedChatId={null} />
       </div>
       <div className="flex flex-1 flex-col items-center justify-center px-4 py-16 sm:px-6 lg:px-8">
         <div className="relative mx-auto max-w-md text-center">
@@ -36,7 +43,9 @@ export function EmptyState({ stats }: EmptyStateProps) {
           </div>
           <h2 className="font-heading text-xl font-bold text-zinc-100">Пока нет диалогов</h2>
           <p className="mt-2 text-sm leading-relaxed text-zinc-500">
-            Как только пользователи напишут боту, чаты появятся в колонке слева.
+            {statusFilter !== "all"
+              ? "Нет диалогов с выбранным статусом. Попробуйте фильтр «Все» или другой статус."
+              : "Как только пользователи напишут боту, чаты появятся в колонке слева."}
           </p>
         </div>
       </div>

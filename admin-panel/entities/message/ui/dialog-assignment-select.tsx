@@ -79,7 +79,7 @@ export function DialogAssignmentSelect({
         </p>
       ) : null}
       <div className={`mt-1 text-[10px] leading-snug ${labelMetaClass}`}>
-        Последняя операция:{" "}
+        Кто последним менял ответственного:{" "}
         {dialog.assigned_by_manager_id ? (
           <>
             {[dialog.assigned_by_manager_first_name, dialog.assigned_by_manager_last_name]
@@ -87,7 +87,7 @@ export function DialogAssignmentSelect({
               .join(" ") || "—"}
           </>
         ) : (
-          "—"
+          "ещё не меняли"
         )}
       </div>
     </form>

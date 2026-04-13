@@ -1,3 +1,4 @@
+import type { DialogStatusFilter } from "../model/dialog-status";
 import type {
   MessageDialogRecord,
   MessageRecord,
@@ -14,32 +15,46 @@ type MessagePageData = {
   messages: MessageRecord[];
 };
 
-export async function getDialogsAndStats(limit: number): Promise<DialogsAndStatsData> {
+const DIALOG_SELECT_FIELDS = [
+  "client_id",
+  "chat_id",
+  "username",
+  "first_name",
+  "last_name",
+  "dialog_status",
+  "last_message_at",
+  "messages_count",
+  "current_manager_id",
+  "assigned_by_manager_id",
+  "current_manager_first_name",
+  "current_manager_last_name",
+  "assigned_by_manager_first_name",
+  "assigned_by_manager_last_name",
+].join(", ");
+
+function mapDialogRow(row: Record<string, unknown>): MessageDialogRecord {
+  return row as unknown as MessageDialogRecord;
+}
+
+export async function getDialogsAndStats(
+  limit: number,
+  statusFilter: DialogStatusFilter = "all",
+): Promise<DialogsAndStatsData> {
   const supabase = await createSupabaseServerClient();
+
+  let dialogsQuery = supabase
+    .from("message_dialogs")
+    .select(DIALOG_SELECT_FIELDS)
+    .order("last_message_at", { ascending: false })
+    .limit(limit);
+
+  if (statusFilter !== "all") {
+    dialogsQuery = dialogsQuery.eq("dialog_status", statusFilter);
+  }
 
   const [{ data: dialogs, error: dialogsError }, { data: stats, error: statsError }] =
     await Promise.all([
-      supabase
-        .from("message_dialogs")
-        .select(
-          [
-            "client_id",
-            "chat_id",
-            "username",
-            "first_name",
-            "last_name",
-            "last_message_at",
-            "messages_count",
-            "current_manager_id",
-            "assigned_by_manager_id",
-            "current_manager_first_name",
-            "current_manager_last_name",
-            "assigned_by_manager_first_name",
-            "assigned_by_manager_last_name",
-          ].join(", "),
-        )
-        .order("last_message_at", { ascending: false })
-        .limit(limit),
+      dialogsQuery,
       supabase
         .from("message_stats")
         .select("total_messages, total_unique_users")
@@ -55,9 +70,31 @@ export async function getDialogsAndStats(limit: number): Promise<DialogsAndStats
   }
 
   return {
-    dialogs: (dialogs ?? []) as unknown as MessageDialogRecord[],
+    dialogs: (dialogs ?? []).map((row) => mapDialogRow(row as unknown as Record<string, unknown>)),
     stats: stats as MessageStatsRecord,
   };
+}
+
+export async function getMessageDialogByChatId(
+  chatId: number,
+): Promise<MessageDialogRecord | null> {
+  const supabase = await createSupabaseServerClient();
+
+  const { data, error } = await supabase
+    .from("message_dialogs")
+    .select(DIALOG_SELECT_FIELDS)
+    .eq("chat_id", chatId)
+    .maybeSingle();
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  if (!data) {
+    return null;
+  }
+
+  return mapDialogRow(data as unknown as Record<string, unknown>);
 }
 
 export async function getMessagesByChatId(
@@ -88,17 +125,48 @@ export async function getMessagesByChatId(
     return { messages: [] };
   }
 
-  const { data, error } = await supabase
+  const { data: rows, error } = await supabase
     .from("messages")
-    .select("id, created_at, text_content")
+    .select("id, created_at, text_content, direction, sent_by_manager_id")
     .eq("client_id", client.id)
-    // Hide Telegram /start commands in admin history.
-    .or("text_content.is.null,text_content.not.ilike./start%")
+    .or(
+      "direction.eq.outbound,and(direction.eq.inbound,or(text_content.is.null,text_content.not.ilike./start%))",
+    )
     .order("created_at", { ascending: false })
     .range(from, to);
 
   if (error) {
     throw new Error(error.message);
+  }
+
+  const list = rows ?? [];
+  const managerIds = [
+    ...new Set(
+      list.map((r) => r.sent_by_manager_id).filter((id): id is string => id !== null),
+    ),
+  ];
+
+  let managerById = new Map<
+    string,
+    { first_name: string; last_name: string; company_role: string }
+  >();
+
+  if (managerIds.length > 0) {
+    const { data: mgrs } = await supabase
+      .from("managers")
+      .select("user_id, first_name, last_name, company_role")
+      .in("user_id", managerIds);
+
+    managerById = new Map(
+      (mgrs ?? []).map((m) => [
+        m.user_id,
+        {
+          first_name: m.first_name,
+          last_name: m.last_name,
+          company_role: m.company_role,
+        },
+      ]),
+    );
   }
 
   const clientFields = {
@@ -109,9 +177,22 @@ export async function getMessagesByChatId(
   };
 
   return {
-    messages: (data ?? []).map((row) => ({
-      ...row,
-      ...clientFields,
-    })) as MessageRecord[],
+    messages: list.map((row) => {
+      const mgr = row.sent_by_manager_id
+        ? managerById.get(row.sent_by_manager_id)
+        : undefined;
+      const direction = row.direction === "outbound" ? "outbound" : "inbound";
+
+      return {
+        id: row.id,
+        created_at: row.created_at,
+        text_content: row.text_content,
+        direction,
+        manager_first_name: mgr?.first_name ?? null,
+        manager_last_name: mgr?.last_name ?? null,
+        manager_company_role: mgr?.company_role ?? null,
+        ...clientFields,
+      } satisfies MessageRecord;
+    }),
   };
 }

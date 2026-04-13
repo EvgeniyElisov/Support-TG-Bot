@@ -1,3 +1,5 @@
+import type { DialogStatus } from "./dialog-status";
+
 export type MessageRecord = {
   id: string;
   chat_id: number;
@@ -6,6 +8,10 @@ export type MessageRecord = {
   last_name: string | null;
   created_at: string;
   text_content: string | null;
+  direction: "inbound" | "outbound";
+  manager_first_name: string | null;
+  manager_last_name: string | null;
+  manager_company_role: string | null;
 };
 
 export type MessageDialogRecord = {
@@ -14,6 +20,7 @@ export type MessageDialogRecord = {
   username: string | null;
   first_name: string | null;
   last_name: string | null;
+  dialog_status: DialogStatus;
   last_message_at: string;
   messages_count: number;
   current_manager_id: string | null;

@@ -1,9 +1,14 @@
 import {
   getDialogsAndStats,
   getManagersDirectory,
+  getMessageDialogByChatId,
   getMessagesByChatId,
 } from "@/entities/message/api";
-import { getSingleSearchParam, parsePositiveInteger } from "@/entities/message/lib";
+import {
+  getSingleSearchParam,
+  parseDialogStatusFilter,
+  parsePositiveInteger,
+} from "@/entities/message/lib";
 import { createSupabaseServerClient } from "@/shared/api/supabase/server";
 
 import { DIALOGS_PER_PAGE, MESSAGES_PER_PAGE } from "./constants";
@@ -15,11 +20,13 @@ export async function getMessagesPageData(searchParams: SearchParamsInput): Prom
   const resolvedSearchParams = (await searchParams) ?? {};
   const chatParam = getSingleSearchParam(resolvedSearchParams.chat);
   const pageParam = getSingleSearchParam(resolvedSearchParams.page);
+  const statusParam = getSingleSearchParam(resolvedSearchParams.status);
+  const statusFilter = parseDialogStatusFilter(statusParam);
 
   const supabase = await createSupabaseServerClient();
 
-  const [{ dialogs, stats }, managers, { data: userData }] = await Promise.all([
-    getDialogsAndStats(DIALOGS_PER_PAGE),
+  const [{ dialogs: dialogsRaw, stats }, managers, { data: userData }] = await Promise.all([
+    getDialogsAndStats(DIALOGS_PER_PAGE, statusFilter),
     getManagersDirectory(),
     supabase.auth.getUser(),
   ]);
@@ -27,8 +34,27 @@ export async function getMessagesPageData(searchParams: SearchParamsInput): Prom
   const sessionUserId = userData.user?.id ?? null;
 
   const selectedChatFromQuery = parsePositiveInteger(chatParam);
-  const selectedDialog =
-    dialogs.find((dialog) => dialog.chat_id === selectedChatFromQuery) ?? dialogs[0] ?? null;
+
+  let selectedDialog =
+    selectedChatFromQuery != null
+      ? (dialogsRaw.find((d) => d.chat_id === selectedChatFromQuery) ?? null)
+      : null;
+
+  if (!selectedDialog && selectedChatFromQuery != null) {
+    selectedDialog = await getMessageDialogByChatId(selectedChatFromQuery);
+  }
+
+  if (!selectedDialog) {
+    selectedDialog = dialogsRaw[0] ?? null;
+  }
+
+  let dialogs = dialogsRaw;
+  if (
+    selectedDialog &&
+    !dialogsRaw.some((d) => d.chat_id === selectedDialog!.chat_id)
+  ) {
+    dialogs = [selectedDialog, ...dialogsRaw];
+  }
 
   if (!selectedDialog) {
     return {
@@ -40,6 +66,8 @@ export async function getMessagesPageData(searchParams: SearchParamsInput): Prom
       dialogs,
       managers,
       sessionUserId,
+      canReply: false as const,
+      statusFilter,
     };
   }
 
@@ -52,6 +80,11 @@ export async function getMessagesPageData(searchParams: SearchParamsInput): Prom
     MESSAGES_PER_PAGE,
   );
 
+  const canReply =
+    sessionUserId !== null &&
+    selectedDialog.current_manager_id !== null &&
+    selectedDialog.current_manager_id === sessionUserId;
+
   return {
     stats,
     selectedDialog,
@@ -61,5 +94,7 @@ export async function getMessagesPageData(searchParams: SearchParamsInput): Prom
     dialogs,
     managers,
     sessionUserId,
+    canReply,
+    statusFilter,
   };
 }

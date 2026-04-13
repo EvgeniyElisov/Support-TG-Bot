@@ -4,4 +4,9 @@ export {
   getDisplayName,
   getDisplayText,
 } from "./message-formatters";
-export { getSingleSearchParam, parsePositiveInteger } from "./query-params";
+export { buildDashboardUrl } from "./dashboard-url";
+export {
+  getSingleSearchParam,
+  parseDialogStatusFilter,
+  parsePositiveInteger,
+} from "./query-params";

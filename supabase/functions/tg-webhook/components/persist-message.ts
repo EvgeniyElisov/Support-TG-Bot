@@ -71,6 +71,7 @@ export async function persistIncomingMessage(msg: Message): Promise<void> {
   const { error } = await db.from("messages").insert({
     client_id: clientRow.id,
     text_content: textContent,
+    direction: "inbound",
   })
 
   if (error) {

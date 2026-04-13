@@ -1,18 +1,31 @@
 import Link from "next/link";
 
+import { buildDashboardUrl } from "@/entities/message/lib/dashboard-url";
+import type { DialogStatusFilter } from "@/entities/message/model/dialog-status";
+
 type MessagePaginationProps = {
   chatId: number;
   currentPage: number;
   totalPages: number;
+  statusFilter: DialogStatusFilter;
 };
 
 export function MessagePagination({
   chatId,
   currentPage,
   totalPages,
+  statusFilter,
 }: MessagePaginationProps) {
-  const prevPageHref = `/dashboard?chat=${chatId}&page=${Math.max(1, currentPage - 1)}`;
-  const nextPageHref = `/dashboard?chat=${chatId}&page=${Math.min(totalPages, currentPage + 1)}`;
+  const prevPageHref = buildDashboardUrl({
+    chat: chatId,
+    page: Math.max(1, currentPage - 1),
+    status: statusFilter,
+  });
+  const nextPageHref = buildDashboardUrl({
+    chat: chatId,
+    page: Math.min(totalPages, currentPage + 1),
+    status: statusFilter,
+  });
 
   return (
     <footer className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">

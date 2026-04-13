@@ -1,15 +1,19 @@
 import Link from "next/link";
 
+import { buildDashboardUrl } from "@/entities/message/lib/dashboard-url";
+import type { DialogStatusFilter } from "@/entities/message/model/dialog-status";
 import { formatMessageDate, getAvatarInitial, getDisplayName } from "../lib";
 import type { ManagerDirectoryEntry, MessageDialogRecord } from "../model/types";
 
 import { DialogAssignmentSelect } from "./dialog-assignment-select";
+import { DialogStatusBadge } from "@/features/dialog-status";
 
 type DialogListProps = {
   dialogs: MessageDialogRecord[];
   selectedChatId: number | null;
   managers: ManagerDirectoryEntry[];
   sessionUserId: string | null;
+  statusFilter: DialogStatusFilter;
 };
 
 export function DialogList({
@@ -17,11 +21,12 @@ export function DialogList({
   selectedChatId,
   managers,
   sessionUserId,
+  statusFilter,
 }: DialogListProps) {
   if (dialogs.length === 0) {
     return (
       <div className="rounded-xl border border-dashed border-white/15 bg-black/20 px-4 py-8 text-center text-sm text-zinc-500">
-        Диалогов пока нет.
+        Нет диалогов в этом списке.
       </div>
     );
   }
@@ -31,6 +36,11 @@ export function DialogList({
       {dialogs.map((dialog) => {
         const isActive = dialog.chat_id === selectedChatId;
         const initial = getAvatarInitial(dialog);
+        const href = buildDashboardUrl({
+          chat: dialog.chat_id,
+          page: 1,
+          status: statusFilter,
+        });
 
         return (
           <li key={dialog.chat_id}>
@@ -41,7 +51,7 @@ export function DialogList({
                   : "border-white/8 bg-black/15 hover:border-[#2dd4bf]/25 hover:bg-white/6"
               }`}
             >
-              <Link href={`/dashboard?chat=${dialog.chat_id}&page=1`} className="block p-3">
+              <Link href={href} className="block p-3">
                 <div className="flex gap-3">
                   <div
                     className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-xl text-sm font-bold ${
@@ -58,15 +68,18 @@ export function DialogList({
                       <span className="truncate text-sm font-semibold leading-snug text-zinc-100">
                         {getDisplayName(dialog)}
                       </span>
-                      <span
-                        className={`shrink-0 rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
-                          isActive
-                            ? "bg-[#c8ff3d]/15 text-[#d4ff7a]"
-                            : "bg-white/8 text-zinc-500"
-                        }`}
-                      >
-                        {dialog.messages_count}
-                      </span>
+                      <div className="flex shrink-0 items-center gap-1.5">
+                        <DialogStatusBadge status={dialog.dialog_status} />
+                        <span
+                          className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                            isActive
+                              ? "bg-[#c8ff3d]/15 text-[#d4ff7a]"
+                              : "bg-white/8 text-zinc-500"
+                          }`}
+                        >
+                          {dialog.messages_count}
+                        </span>
+                      </div>
                     </div>
                     <p className={`mt-1 truncate text-[11px] ${isActive ? "text-zinc-400" : "text-zinc-600"}`}>
                       id {dialog.chat_id} · {formatMessageDate(dialog.last_message_at)}

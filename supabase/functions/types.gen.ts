@@ -68,6 +68,7 @@ export type Database = {
         Row: {
           chat_id: number
           created_at: string
+          dialog_status: string
           first_name: string | null
           id: string
           last_name: string | null
@@ -78,6 +79,7 @@ export type Database = {
         Insert: {
           chat_id: number
           created_at?: string
+          dialog_status?: string
           first_name?: string | null
           id?: string
           last_name?: string | null
@@ -88,6 +90,7 @@ export type Database = {
         Update: {
           chat_id?: number
           created_at?: string
+          dialog_status?: string
           first_name?: string | null
           id?: string
           last_name?: string | null
@@ -125,19 +128,25 @@ export type Database = {
         Row: {
           client_id: string
           created_at: string
+          direction: string
           id: string
+          sent_by_manager_id: string | null
           text_content: string | null
         }
         Insert: {
           client_id: string
           created_at?: string
+          direction?: string
           id?: string
+          sent_by_manager_id?: string | null
           text_content?: string | null
         }
         Update: {
           client_id?: string
           created_at?: string
+          direction?: string
           id?: string
+          sent_by_manager_id?: string | null
           text_content?: string | null
         }
         Relationships: [
@@ -155,6 +164,13 @@ export type Database = {
             referencedRelation: "message_dialogs"
             referencedColumns: ["client_id"]
           },
+          {
+            foreignKeyName: "messages_sent_by_manager_id_fkey"
+            columns: ["sent_by_manager_id"]
+            isOneToOne: false
+            referencedRelation: "managers"
+            referencedColumns: ["user_id"]
+          },
         ]
       }
     }
@@ -169,6 +185,7 @@ export type Database = {
           current_manager_first_name: string | null
           current_manager_id: string | null
           current_manager_last_name: string | null
+          dialog_status: string | null
           first_name: string | null
           last_message_at: string | null
           last_name: string | null
@@ -186,8 +203,16 @@ export type Database = {
       }
     }
     Functions: {
+      insert_manager_reply: {
+        Args: { p_client_id: string; p_text: string }
+        Returns: string
+      }
       set_client_assignment: {
         Args: { p_client_id: string; p_current_manager_id: string | null }
+        Returns: undefined
+      }
+      set_client_dialog_status: {
+        Args: { p_client_id: string; p_status: string }
         Returns: undefined
       }
     }
