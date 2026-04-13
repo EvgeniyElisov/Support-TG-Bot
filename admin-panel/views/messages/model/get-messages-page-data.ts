@@ -5,11 +5,13 @@ import {
   getMessagesByChatId,
 } from "@/entities/message/api";
 import {
+  buildDashboardUrl,
   getSingleSearchParam,
   parseDialogStatusFilter,
   parsePositiveInteger,
 } from "@/entities/message/lib";
 import { createSupabaseServerClient } from "@/shared/api/supabase/server";
+import { redirect } from "next/navigation";
 
 import { DIALOGS_PER_PAGE, MESSAGES_PER_PAGE } from "./constants";
 import type { MessagesPageData } from "./types";
@@ -44,8 +46,30 @@ export async function getMessagesPageData(searchParams: SearchParamsInput): Prom
     selectedDialog = await getMessageDialogByChatId(selectedChatFromQuery);
   }
 
+  if (
+    selectedDialog &&
+    statusFilter !== "all" &&
+    selectedDialog.dialog_status !== statusFilter
+  ) {
+    selectedDialog = null;
+  }
+
   if (!selectedDialog) {
     selectedDialog = dialogsRaw[0] ?? null;
+  }
+
+  if (
+    selectedDialog &&
+    selectedChatFromQuery != null &&
+    selectedDialog.chat_id !== selectedChatFromQuery
+  ) {
+    redirect(
+      buildDashboardUrl({
+        chat: selectedDialog.chat_id,
+        status: statusFilter,
+        page: 1,
+      }),
+    );
   }
 
   let dialogs = dialogsRaw;
