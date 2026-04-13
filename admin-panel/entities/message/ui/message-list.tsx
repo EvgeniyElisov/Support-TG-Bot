@@ -8,17 +8,20 @@ type MessageListProps = {
 export function MessageList({ messages }: MessageListProps) {
   if (messages.length === 0) {
     return (
-      <div className="rounded-2xl border border-zinc-700/60 bg-zinc-900/80 p-6 text-sm text-zinc-400 shadow-sm">
-        Сообщений пока нет.
+      <div className="rounded-xl border border-dashed border-white/12 bg-black/15 px-6 py-12 text-center">
+        <p className="text-sm text-zinc-500">В этом диалоге пока нет сообщений на странице.</p>
       </div>
     );
   }
 
   return (
-    <ul className="space-y-3">
-      {messages.map((message) => (
-        <MessageCard key={message.id} message={message} />
-      ))}
-    </ul>
+    <div className="relative">
+      <p className="mb-4 text-[10px] font-bold uppercase tracking-[0.25em] text-zinc-600">Лента</p>
+      <ol className="relative list-none">
+        {messages.map((message) => (
+          <MessageCard key={message.id} message={message} />
+        ))}
+      </ol>
+    </div>
   );
 }

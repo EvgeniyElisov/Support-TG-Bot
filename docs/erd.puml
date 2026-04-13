@@ -1,0 +1,75 @@
+@startuml Support-TG-Bot — ERD (public + auth)
+!theme plain
+skinparam linetype ortho
+skinparam roundcorner 8
+skinparam entity {
+  BackgroundColor #F8F9FA
+  BorderColor #333333
+}
+skinparam arrow {
+  Color #333333
+}
+
+title Схема БД: таблицы и связи
+
+entity "**auth.users**" as auth_users <<Supabase Auth>> {
+  * **id** : uuid <<PK>>
+  --
+  _остальные поля Auth_
+}
+
+entity "**public.clients**" as clients {
+  * **id** : uuid <<PK>>
+  --
+  * **chat_id** : bigint <<unique>>
+  --
+  telegram_user_id : bigint
+  username : varchar(255)
+  first_name : varchar(255)
+  last_name : varchar(255)
+  created_at : timestamptz
+  updated_at : timestamptz
+}
+
+entity "**public.client_assignments**" as client_assignments {
+  * **client_id** : uuid <<PK, FK → clients>>
+  --
+  current_manager_id : uuid <<FK, nullable>>
+  assigned_by_manager_id : uuid <<FK, nullable>>
+  updated_at : timestamptz
+  --
+  _строка может отсутствовать_
+  _до первого assign/unassign_
+}
+
+entity "**public.messages**" as messages {
+  * **id** : uuid <<PK>>
+  --
+  * **client_id** : uuid <<FK>>
+  --
+  created_at : timestamptz
+  text_content : text
+}
+
+entity "**public.managers**" as managers {
+  * **user_id** : uuid <<PK, FK → auth.users>>
+  --
+  first_name : text
+  last_name : text
+  company_role : text
+  created_at : timestamptz
+}
+
+auth_users ||--|| managers : « 1 : 1 »\nменеджер = пользователь Auth
+clients ||--o| client_assignments : « 0..1 »\nстрока при первом действии
+clients ||--o{ messages : « 1 : N »\nсообщения диалога
+managers }o--o| client_assignments : « current »
+managers }o--o| client_assignments : « assigned by »
+
+note bottom of messages
+  **Представления (не таблицы):**
+  • **message_dialogs** — список диалогов
+  • **message_stats** — агрегаты по сообщениям
+end note
+
+@enduml

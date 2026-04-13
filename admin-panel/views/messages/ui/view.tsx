@@ -2,7 +2,6 @@ import { MessageStatsBar } from "@/entities/message/ui";
 
 import type { MessagesPageData } from "../model/types";
 import { EmptyState } from "./empty-state";
-import { Header } from "./header";
 import { Layout } from "./layout";
 
 type ViewProps = {
@@ -15,22 +14,22 @@ export function View({ data }: ViewProps) {
   }
 
   return (
-    <div className="min-h-screen">
-      <main className="mx-auto w-full max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
-        <Header
-          title="@hug_the_bug_bot — Сообщения"
-          subtitle="Панель сообщений Telegram-бота"
-        />
+    <div className="flex min-h-0 flex-1 flex-col">
+      <div className="shrink-0 border-b border-white/10 px-4 py-5 sm:px-6 lg:px-8">
         <MessageStatsBar stats={data.stats} />
-
+      </div>
+      <div className="flex min-h-0 flex-1 flex-col px-4 pb-6 pt-4 sm:px-6 lg:px-8">
         <Layout
           dialogs={data.dialogs}
           selectedChatId={data.selectedDialog.chat_id}
+          activeDialog={data.selectedDialog}
           messages={data.messages}
           currentPage={data.currentPage}
           totalPages={data.totalPages}
+          managers={data.managers}
+          sessionUserId={data.sessionUserId}
         />
-      </main>
+      </div>
     </div>
   );
 }

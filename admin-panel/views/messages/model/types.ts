@@ -1,4 +1,5 @@
 import type {
+  ManagerDirectoryEntry,
   MessageDialogRecord,
   MessageRecord,
   MessageStatsRecord,
@@ -12,6 +13,8 @@ export type MessagesPageData =
       currentPage: 1;
       totalPages: 1;
       dialogs: MessageDialogRecord[];
+      managers: ManagerDirectoryEntry[];
+      sessionUserId: string | null;
     }
   | {
       stats: MessageStatsRecord;
@@ -20,4 +23,6 @@ export type MessagesPageData =
       currentPage: number;
       totalPages: number;
       dialogs: MessageDialogRecord[];
+      managers: ManagerDirectoryEntry[];
+      sessionUserId: string | null;
     };

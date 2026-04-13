@@ -1,52 +1,61 @@
 # Support TG Bot
 
-Телеграм-бот поддержки на **Supabase Edge Functions** и **grammY**: входящие сообщения обрабатываются вебхуком, дублируются в таблицу PostgreSQL `public.messages`, пользователю отправляется эхо-ответ с текстом сообщения.
+Телеграм-бот поддержки на **Supabase Edge Functions** и **grammY**: входящие сообщения обрабатываются вебхуком, сохраняются в PostgreSQL (`clients` + `messages`), пользователю отправляется эхо-ответ с текстом сообщения. **Админ-панель** (Next.js) показывает диалоги, сообщения и назначение менеджеров на клиентов.
 
 ## Возможности
 
 - Приём апдейтов через HTTPS-вебхук (без long polling).
-- Сохранение входящих сообщений (включая правки через `edited_message`) в БД с upsert по паре `(chat_id, message_id)`.
+- Сохранение в БД: upsert клиента по `chat_id` в `public.clients`, вставка строки в `public.messages` (`client_id`, `text_content` — текст или подпись к медиа).
 - Ответ в чат с цитированием исходного сообщения.
+- В админке: список диалогов (представление `message_dialogs`), сообщения по чату, назначение менеджера через RPC `set_client_assignment`.
 
 ## Стек
 
 | Компонент | Технология |
 |-----------|------------|
-| Runtime Edge Function | Deno |
+| Edge Function (вебхук) | Deno |
+| Админ-панель | Next.js, React |
 | Telegram API | [grammY](https://grammy.dev/) |
 | База данных | Supabase (PostgreSQL) |
 | Доступ к БД из функции | `@supabase/supabase-js` с service role |
+| Доступ из админки | `@supabase/ssr`, anon key + сессия |
 
 ## Структура репозитория
 
 ```
+admin-panel/           # Next.js: дашборд сообщений, авторизация Supabase Auth
+  types/supabase-database.ts  # реэкспорт Database из сгенерированных типов
+docs/
+  erd.puml             # целевая схема БД (PlantUML)
 supabase/
-  migrations/          # SQL-миграции (таблица messages и политики RLS)
+  migrations/          # SQL-миграции (порядок по timestamp)
   functions/
-    tg-webhook/        # Edge Function: вебхук бота (слои по C4: HTTP → grammY → persist / preview)
-      index.ts         # точка входа
-      components/      # модули вебхука
-      deno.json        # import map (grammy, supabase-js)
-  config.toml          # настройки проекта и функции tg-webhook
+    types.gen.ts       # типы БД для TS (генерация см. ниже)
+    tg-webhook/        # Edge Function: HTTP → grammY → persist / preview
+      index.ts
+      components/
+      deno.json
+  config.toml
 ```
 
 ## Требования
 
 - [Supabase CLI](https://supabase.com/docs/guides/cli)
-- [Deno](https://deno.land/) (локальный запуск функции вне CLI — по желанию)
+- [Node.js](https://nodejs.org/) — для `admin-panel`
+- [Deno](https://deno.land/) — опционально для локального запуска функции вне CLI
 - Аккаунт Supabase и токен бота от [@BotFather](https://t.me/BotFather)
 
 ## Переменные окружения
 
-Создайте файл `.env.local` в корне (не коммитьте его в git):
+### Edge Function / локальный `.env.local` в корне (не коммитить)
 
 | Переменная | Описание |
 |------------|----------|
 | `TELEGRAM_BOT_TOKEN` | Токен бота от BotFather |
 | `SUPABASE_URL` | URL проекта Supabase |
-| `SUPABASE_SERVICE_ROLE_KEY` | Service role key (только на сервере; не использовать в клиенте) |
+| `SUPABASE_SERVICE_ROLE_KEY` | Service role key (только на сервере; не в клиенте) |
 
-В облаке для Edge Functions задайте секреты:
+В облаке для Edge Functions:
 
 ```bash
 supabase secrets set TELEGRAM_BOT_TOKEN=your_token
@@ -54,57 +63,86 @@ supabase secrets set TELEGRAM_BOT_TOKEN=your_token
 
 `SUPABASE_URL` и `SUPABASE_SERVICE_ROLE_KEY` в развёрнутых функциях подставляются платформой автоматически.
 
+### Админ-панель (`admin-panel/.env.local`)
+
+| Переменная | Описание |
+|------------|----------|
+| `NEXT_PUBLIC_SUPABASE_URL` | URL проекта |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Anon key (клиент + сервер через SSR) |
+
+## Типы TypeScript для Supabase
+
+После изменения схемы БД:
+
+```bash
+supabase gen types typescript --local > supabase/functions/types.gen.ts
+```
+
+Админ-панель импортирует `Database` через `admin-panel/types/supabase-database.ts` (реэкспорт из `supabase/functions/types.gen.ts`). После регенерации проверьте сигнатуру RPC `set_client_assignment`: параметр `p_current_manager_id` в Postgres допускает `NULL` — при необходимости поправьте тип в `types.gen.ts`.
+
 ## Локальная разработка
 
-1. Запустите стек Supabase и примените миграции:
+1. Запустите Supabase и примените миграции:
 
    ```bash
    supabase start
-   supabase db reset   # при необходимости: миграции + seed
+   supabase db reset
    ```
 
-2. Поднимите функцию локально:
+2. Поднимите Edge Function:
 
    ```bash
    supabase functions serve tg-webhook --env-file .env.local
    ```
 
-   По умолчанию эндпоинт: `http://127.0.0.1:54321/functions/v1/tg-webhook`.
+   Эндпоинт по умолчанию: `http://127.0.0.1:54321/functions/v1/tg-webhook`.
 
-3. Сделайте URL доступным из интернета (например, [Cloudflare Tunnel](https://developers.cloudflare.com/cloudflare-one/connections/connect-apps/) или аналог) и зарегистрируйте вебхук у Telegram:
+3. Админ-панель:
+
+   ```bash
+   cd admin-panel && npm install && npm run dev
+   ```
+
+4. Сделайте URL вебхука доступным из интернета и зарегистрируйте его у Telegram:
 
    ```bash
    curl "https://api.telegram.org/bot<TELEGRAM_BOT_TOKEN>/setWebhook?url=<HTTPS_URL_ДО_ФУНКЦИИ>"
    ```
 
-   URL должен указывать **ровно** на обработчик вебхука (тот путь, который отдаёт `OK` на GET и принимает POST с JSON Update).
-
 ### Проверка JWT для вебхука
 
-В `supabase/config.toml` для `tg-webhook` указано `verify_jwt = true`. Запросы от Telegram **не** содержат JWT Supabase, поэтому для реального вебхука обычно выставляют:
+В `supabase/config.toml` для `tg-webhook` может быть `verify_jwt = true`. Запросы от Telegram **не** содержат JWT Supabase — для реального вебхука обычно:
 
 ```toml
 [functions.tg-webhook]
 verify_jwt = false
 ```
 
-Иначе POST от Telegram может получать `401`. Для дополнительной защиты можно использовать [secret_token](https://core.telegram.org/bots/api#setwebhook) в `setWebhook` и проверять заголовок `X-Telegram-Bot-Api-Secret-Token` в коде функции.
+Иначе POST от Telegram может получать `401`. Дополнительно: [secret_token](https://core.telegram.org/bots/api#setwebhook) и проверка заголовка `X-Telegram-Bot-Api-Secret-Token`.
 
 ## Деплой
 
 ```bash
 supabase link --project-ref <ref>
-supabase db push              # миграции на удалённую БД
+supabase db push
 supabase functions deploy tg-webhook
 ```
 
-После деплоя укажите вебхук на URL вида:
+Вебхук в облаке: `https://<project-ref>.supabase.co/functions/v1/tg-webhook`
 
-`https://<project-ref>.supabase.co/functions/v1/tg-webhook`
+Админ-панель — отдельно (например Vercel) с теми же `NEXT_PUBLIC_SUPABASE_*`.
 
-## База данных
+## База данных (основное)
 
-Таблица `public.messages` хранит метаданные чата, идентификаторы сообщения, текст/подпись и полный объект сообщения в `raw` (JSONB). Уникальность: `(chat_id, message_id)`.
+| Объект | Назначение |
+|--------|------------|
+| **`public.clients`** | Один диалог Telegram на `chat_id` (уникальный); профиль (`username`, имена, `telegram_user_id`). |
+| **`public.messages`** | Сообщения: `client_id`, `created_at`, `text_content`. |
+| **`public.managers`** | Профиль менеджера: `user_id` → `auth.users`, ФИО, `company_role`. |
+| **`public.client_assignments`** | Необязательная строка `0..1` на клиента: `current_manager_id`, `assigned_by_manager_id` → `managers`. Создаётся при первом вызове RPC `set_client_assignment`. |
+| **`message_dialogs`**, **`message_stats`** | Представления: список диалогов для админки и глобальные метрики. |
+
+Миграции в `supabase/migrations/` накатываются по имени файла (timestamp). Схема на диаграмме: `docs/erd.puml`.
 
 ## Полезные ссылки
 

@@ -1,5 +1,10 @@
-import { getDialogsAndStats, getMessagesByChatId } from "@/entities/message/api";
+import {
+  getDialogsAndStats,
+  getManagersDirectory,
+  getMessagesByChatId,
+} from "@/entities/message/api";
 import { getSingleSearchParam, parsePositiveInteger } from "@/entities/message/lib";
+import { createSupabaseServerClient } from "@/shared/api/supabase/server";
 
 import { DIALOGS_PER_PAGE, MESSAGES_PER_PAGE } from "./constants";
 import type { MessagesPageData } from "./types";
@@ -11,7 +16,15 @@ export async function getMessagesPageData(searchParams: SearchParamsInput): Prom
   const chatParam = getSingleSearchParam(resolvedSearchParams.chat);
   const pageParam = getSingleSearchParam(resolvedSearchParams.page);
 
-  const { dialogs, stats } = await getDialogsAndStats(DIALOGS_PER_PAGE);
+  const supabase = await createSupabaseServerClient();
+
+  const [{ dialogs, stats }, managers, { data: userData }] = await Promise.all([
+    getDialogsAndStats(DIALOGS_PER_PAGE),
+    getManagersDirectory(),
+    supabase.auth.getUser(),
+  ]);
+
+  const sessionUserId = userData.user?.id ?? null;
 
   const selectedChatFromQuery = parsePositiveInteger(chatParam);
   const selectedDialog =
@@ -25,6 +38,8 @@ export async function getMessagesPageData(searchParams: SearchParamsInput): Prom
       currentPage: 1,
       totalPages: 1,
       dialogs,
+      managers,
+      sessionUserId,
     };
   }
 
@@ -44,5 +59,7 @@ export async function getMessagesPageData(searchParams: SearchParamsInput): Prom
     currentPage,
     totalPages,
     dialogs,
+    managers,
+    sessionUserId,
   };
 }

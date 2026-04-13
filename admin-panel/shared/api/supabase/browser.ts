@@ -1,6 +1,9 @@
 import { createBrowserClient } from "@supabase/ssr";
+import type { SupabaseClient } from "@supabase/supabase-js";
 
-let client: ReturnType<typeof createBrowserClient> | null = null;
+import type { Database } from "@/types/supabase-database";
+
+let client: SupabaseClient<Database> | null = null;
 
 /**
  * Клиент для Client Components: те же cookie-сессии, что и на сервере (singleton в браузере).
@@ -14,7 +17,7 @@ export function createSupabaseBrowserClient() {
   }
 
   if (!client) {
-    client = createBrowserClient(supabaseUrl, supabaseAnonKey);
+    client = createBrowserClient<Database>(supabaseUrl, supabaseAnonKey);
   }
 
   return client;

@@ -1,6 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 
+import type { Database } from "@/types/supabase-database";
+
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
@@ -16,7 +18,7 @@ export async function GET(request: NextRequest) {
   if (code) {
     const response = NextResponse.redirect(`${origin}/update-password`);
 
-    const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+    const supabase = createServerClient<Database>(supabaseUrl, supabaseAnonKey, {
       cookies: {
         getAll() {
           return request.cookies.getAll();

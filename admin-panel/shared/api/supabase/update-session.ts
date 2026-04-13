@@ -1,6 +1,8 @@
 import { createServerClient } from "@supabase/ssr";
 import { type NextRequest, NextResponse } from "next/server";
 
+import type { Database } from "@/types/supabase-database";
+
 /**
  * Обновление сессии Supabase Auth в cookie (вызывать из Next.js middleware).
  */
@@ -18,7 +20,7 @@ export async function updateSupabaseSession(request: NextRequest): Promise<NextR
     return response;
   }
 
-  const supabase = createServerClient(supabaseUrl, supabaseAnonKey, {
+  const supabase = createServerClient<Database>(supabaseUrl, supabaseAnonKey, {
     cookies: {
       getAll() {
         return request.cookies.getAll();

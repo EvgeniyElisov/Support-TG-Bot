@@ -12,7 +12,7 @@ export function getDisplayName(message: NameSource): string {
 }
 
 export function getDisplayText(message: MessageRecord): string {
-  return message.text_content ?? message.caption ?? "(empty message)";
+  return message.text_content ?? "(empty message)";
 }
 
 export function formatMessageDate(value: string): string {

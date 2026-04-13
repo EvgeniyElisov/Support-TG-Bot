@@ -1,13 +1,15 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js"
 
-// SUPABASE_URL и SUPABASE_SERVICE_ROLE_KEY подставляются в Edge Functions автоматически.
-let supabaseAdmin: SupabaseClient | null = null
+import type { Database } from "../../types.gen.ts"
 
-export function getSupabaseAdmin(): SupabaseClient | null {
+// SUPABASE_URL и SUPABASE_SERVICE_ROLE_KEY подставляются в Edge Functions автоматически.
+let supabaseAdmin: SupabaseClient<Database> | null = null
+
+export function getSupabaseAdmin(): SupabaseClient<Database> | null {
   if (supabaseAdmin) return supabaseAdmin
   const url = Deno.env.get("SUPABASE_URL") ?? ""
   const key = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? ""
   if (!url || !key) return null
-  supabaseAdmin = createClient(url, key)
+  supabaseAdmin = createClient<Database>(url, key)
   return supabaseAdmin
 }

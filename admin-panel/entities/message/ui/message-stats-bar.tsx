@@ -4,40 +4,39 @@ type MessageStatsBarProps = {
   stats: MessageStatsRecord;
 };
 
-type StatCardProps = {
-  label: string;
-  value: number;
-  accentClassName: string;
-};
-
-function StatCard({ label, value, accentClassName }: StatCardProps) {
-  return (
-    <article className="rounded-2xl border border-zinc-700/60 bg-zinc-900/70 p-4 shadow-lg shadow-black/25 backdrop-blur-xl">
-      <div className="mb-2 flex items-center gap-2">
-        <span
-          className={`inline-flex rounded-md border px-2 py-1 text-[10px] font-semibold uppercase tracking-wider ${accentClassName}`}
-        >
-          {label}
-        </span>
-      </div>
-      <p className="text-3xl font-semibold tracking-tight text-zinc-100">{value.toLocaleString("ru-RU")}</p>
-    </article>
-  );
-}
-
 export function MessageStatsBar({ stats }: MessageStatsBarProps) {
   return (
-    <section className="mb-6 grid gap-3 sm:grid-cols-2">
-      <StatCard
-        label="Сообщения"
-        value={stats.total_messages}
-        accentClassName="border-indigo-400/50 bg-indigo-500/20 text-indigo-100"
-      />
-      <StatCard
-        label="Пользователи"
-        value={stats.total_unique_users}
-        accentClassName="border-cyan-400/50 bg-cyan-500/20 text-cyan-100"
-      />
+    <section
+      className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between"
+      aria-label="Сводка"
+    >
+      <div>
+        <p className="font-heading text-2xl font-bold tracking-tight text-zinc-50 sm:text-3xl">
+          Входящие
+        </p>
+        <p className="mt-1 max-w-xl text-sm text-zinc-500">
+          Сообщения Telegram-бота и назначение ответственных по диалогам.
+        </p>
+      </div>
+
+      <div className="flex flex-wrap gap-3 sm:justify-end">
+        <div className="flex min-w-[140px] items-baseline gap-3 rounded-2xl border border-[#c8ff3d]/25 bg-[#c8ff3d]/6 px-4 py-3">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-[#b8d65a]">
+            Сообщения
+          </span>
+          <span className="font-heading text-2xl font-bold tabular-nums text-zinc-50">
+            {stats.total_messages.toLocaleString("ru-RU")}
+          </span>
+        </div>
+        <div className="flex min-w-[140px] items-baseline gap-3 rounded-2xl border border-[#2dd4bf]/30 bg-[#2dd4bf]/8 px-4 py-3">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-teal-300/90">
+            Пользователи
+          </span>
+          <span className="font-heading text-2xl font-bold tabular-nums text-zinc-50">
+            {stats.total_unique_users.toLocaleString("ru-RU")}
+          </span>
+        </div>
+      </div>
     </section>
   );
 }

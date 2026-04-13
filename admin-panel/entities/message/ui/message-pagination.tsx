@@ -15,18 +15,19 @@ export function MessagePagination({
   const nextPageHref = `/dashboard?chat=${chatId}&page=${Math.min(totalPages, currentPage + 1)}`;
 
   return (
-    <footer className="mt-4 flex items-center justify-between rounded-2xl border border-zinc-700/60 bg-zinc-900/80 p-3 text-sm shadow-md shadow-black/20">
-      <span className="text-zinc-400">
-        Страница {currentPage} из {totalPages}
+    <footer className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <span className="text-xs text-zinc-500">
+        Страница <span className="font-semibold text-zinc-400">{currentPage}</span> из{" "}
+        <span className="font-semibold text-zinc-400">{totalPages}</span>
       </span>
       <div className="flex gap-2">
         <Link
           href={prevPageHref}
           aria-disabled={currentPage <= 1}
-          className={`rounded-lg border px-3 py-1.5 font-medium transition ${
+          className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
             currentPage <= 1
-              ? "pointer-events-none border-zinc-700 text-zinc-600"
-              : "border-zinc-600 text-zinc-200 hover:border-zinc-400 hover:bg-zinc-800"
+              ? "pointer-events-none text-zinc-600"
+              : "border border-white/15 text-zinc-200 hover:border-[#c8ff3d]/40 hover:bg-[#c8ff3d]/10 hover:text-[#e8ffc4]"
           }`}
         >
           Назад
@@ -34,13 +35,13 @@ export function MessagePagination({
         <Link
           href={nextPageHref}
           aria-disabled={currentPage >= totalPages}
-          className={`rounded-lg border px-3 py-1.5 font-medium transition ${
+          className={`rounded-xl px-4 py-2 text-sm font-semibold transition ${
             currentPage >= totalPages
-              ? "pointer-events-none border-zinc-700 text-zinc-600"
-              : "border-zinc-600 text-zinc-200 hover:border-zinc-400 hover:bg-zinc-800"
+              ? "pointer-events-none text-zinc-600"
+              : "border border-white/15 text-zinc-200 hover:border-[#2dd4bf]/40 hover:bg-[#2dd4bf]/10 hover:text-teal-100"
           }`}
         >
-          Вперед
+          Вперёд
         </Link>
       </div>
     </footer>

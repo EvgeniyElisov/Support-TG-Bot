@@ -11,7 +11,7 @@ function LogoutSubmitButton() {
     <button
       type="submit"
       disabled={pending}
-      className="rounded-lg border border-zinc-600 bg-zinc-800/80 px-3 py-1.5 text-sm font-medium text-zinc-100 transition hover:border-zinc-500 hover:bg-zinc-700/80 disabled:cursor-not-allowed disabled:opacity-60"
+      className="rounded-xl border border-white/15 bg-white/6 px-4 py-2 text-sm font-semibold text-zinc-200 transition hover:border-[#c8ff3d]/35 hover:bg-[#c8ff3d]/10 hover:text-[#e8ffc4] disabled:cursor-not-allowed disabled:opacity-60"
     >
       {pending ? "Выход…" : "Выйти"}
     </button>

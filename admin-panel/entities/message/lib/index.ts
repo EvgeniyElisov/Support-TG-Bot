@@ -1,3 +1,4 @@
+export { getAvatarInitial } from "./avatar-initial";
 export {
   formatMessageDate,
   getDisplayName,

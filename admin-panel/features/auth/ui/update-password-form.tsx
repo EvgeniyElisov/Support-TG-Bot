@@ -9,7 +9,7 @@ import {
 } from "../api/update-password";
 
 const inputClassName =
-  "w-full rounded-xl border border-zinc-700/70 bg-zinc-900/80 px-3 py-2.5 text-sm text-zinc-100 shadow-md shadow-black/20 outline-none transition placeholder:text-zinc-500 focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500/40";
+  "w-full rounded-xl border border-white/12 bg-black/35 px-3 py-2.5 text-sm text-zinc-100 shadow-inner outline-none transition placeholder:text-zinc-600 focus:border-[#c8ff3d]/45 focus:ring-2 focus:ring-[#c8ff3d]/15";
 
 export function UpdatePasswordForm() {
   const [password, setPassword] = useState("");
@@ -26,10 +26,8 @@ export function UpdatePasswordForm() {
 
   return (
     <form className="flex flex-col gap-4" action={formAction} noValidate>
-      <h2 className="mb-2 text-center text-sm font-semibold uppercase tracking-wide text-zinc-400">
-        Новый пароль
-      </h2>
-      <p className="mb-2 text-center text-xs text-zinc-400">
+      <h2 className="sr-only">Смена пароля</h2>
+      <p className="mb-1 text-center text-sm text-zinc-500">
         Придумайте новый пароль для входа в панель.
       </p>
 
@@ -70,7 +68,7 @@ export function UpdatePasswordForm() {
       </div>
 
       <button
-        className="mt-1 w-full rounded-xl border border-indigo-400/80 bg-linear-to-br from-indigo-500 to-violet-500 px-4 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-900/40 transition hover:-translate-y-0.5 hover:from-indigo-600 hover:to-violet-600 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-indigo-400/80 active:translate-y-0 disabled:pointer-events-none disabled:opacity-60"
+        className="font-heading mt-1 w-full rounded-xl bg-[#c8ff3d] px-4 py-3.5 text-sm font-bold tracking-wide text-black shadow-[0_0_40px_-8px_rgba(200,255,61,0.45)] transition hover:-translate-y-0.5 hover:bg-[#d8ff6a] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c8ff3d]/80 active:translate-y-0 disabled:pointer-events-none disabled:opacity-60"
         disabled={isPending}
         type="submit"
       >

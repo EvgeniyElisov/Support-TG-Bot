@@ -9,20 +9,20 @@ export function ToastProvider() {
       toastOptions={{
         duration: 4000,
         className:
-          "!bg-zinc-900/95 !text-zinc-100 !text-sm !shadow-xl !shadow-black/40 !border !border-zinc-600/80 !backdrop-blur-md",
+          "!bg-[#12101a]/95 !text-zinc-100 !text-sm !shadow-2xl !shadow-black/50 !border !border-white/12 !backdrop-blur-md",
         style: {
           maxWidth: "24rem",
         },
         success: {
           iconTheme: {
-            primary: "#a5b4fc",
-            secondary: "#18181b",
+            primary: "#c8ff3d",
+            secondary: "#0a090e",
           },
         },
         error: {
           iconTheme: {
-            primary: "#fca5a5",
-            secondary: "#18181b",
+            primary: "#fb7185",
+            secondary: "#0a090e",
           },
         },
       }}
