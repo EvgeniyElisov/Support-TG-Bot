@@ -42,6 +42,14 @@ entity "**public.client_assignments**" as client_assignments {
   _до первого assign/unassign_
 }
 
+entity "**public.client_dialog_states**" as client_dialog_states {
+  * **client_id** : uuid <<PK, FK → clients>>
+  --
+  status : text <<new|in_progress|waiting_client|closed>>
+  created_at : timestamptz
+  updated_at : timestamptz
+}
+
 entity "**public.messages**" as messages {
   * **id** : uuid <<PK>>
   --
@@ -49,6 +57,8 @@ entity "**public.messages**" as messages {
   --
   created_at : timestamptz
   text_content : text
+  direction : text <<inbound|outbound>>
+  sent_by_manager_id : uuid <<FK, nullable>>
 }
 
 entity "**public.managers**" as managers {
@@ -62,14 +72,19 @@ entity "**public.managers**" as managers {
 
 auth_users ||--|| managers : « 1 : 1 »\nменеджер = пользователь Auth
 clients ||--o| client_assignments : « 0..1 »\nстрока при первом действии
+clients ||--|| client_dialog_states : « 1 : 1 »\nсостояние диалога
 clients ||--o{ messages : « 1 : N »\nсообщения диалога
 managers }o--o| client_assignments : « current »
 managers }o--o| client_assignments : « assigned by »
+managers ||--o{ messages : « sender »\nтолько для outbound
 
 note bottom of messages
   **Представления (не таблицы):**
   • **message_dialogs** — список диалогов
   • **message_stats** — агрегаты по сообщениям
+  --
+  message_dialogs.dialog_status берётся из
+  client_dialog_states.status
 end note
 
 @enduml
