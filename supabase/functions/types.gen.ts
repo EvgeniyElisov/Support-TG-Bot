@@ -242,7 +242,7 @@ export type Database = {
         Returns: string
       }
       set_client_assignment: {
-        Args: { p_client_id: string; p_current_manager_id: string }
+        Args: { p_client_id: string; p_current_manager_id: string | null }
         Returns: undefined
       }
       set_client_dialog_status: {
