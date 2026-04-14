@@ -64,11 +64,46 @@ export type Database = {
           },
         ]
       }
+      client_dialog_states: {
+        Row: {
+          client_id: string
+          created_at: string
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          created_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          created_at?: string
+          status?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "client_dialog_states_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: true
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "client_dialog_states_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: true
+            referencedRelation: "message_dialogs"
+            referencedColumns: ["client_id"]
+          },
+        ]
+      }
       clients: {
         Row: {
           chat_id: number
           created_at: string
-          dialog_status: string
           first_name: string | null
           id: string
           last_name: string | null
@@ -79,7 +114,6 @@ export type Database = {
         Insert: {
           chat_id: number
           created_at?: string
-          dialog_status?: string
           first_name?: string | null
           id?: string
           last_name?: string | null
@@ -90,7 +124,6 @@ export type Database = {
         Update: {
           chat_id?: number
           created_at?: string
-          dialog_status?: string
           first_name?: string | null
           id?: string
           last_name?: string | null
@@ -203,12 +236,13 @@ export type Database = {
       }
     }
     Functions: {
+      auth_is_managers_member: { Args: never; Returns: boolean }
       insert_manager_reply: {
         Args: { p_client_id: string; p_text: string }
         Returns: string
       }
       set_client_assignment: {
-        Args: { p_client_id: string; p_current_manager_id: string | null }
+        Args: { p_client_id: string; p_current_manager_id: string }
         Returns: undefined
       }
       set_client_dialog_status: {
