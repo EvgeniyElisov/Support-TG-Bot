@@ -1,13 +1,19 @@
 # Support TG Bot
 
-Телеграм-бот поддержки на **Supabase Edge Functions** и **grammY**: входящие сообщения обрабатываются вебхуком, сохраняются в PostgreSQL (`clients` + `messages`), пользователю отправляется эхо-ответ с текстом сообщения. **Админ-панель** (Next.js) показывает диалоги, сообщения, назначение менеджеров на клиентов и **ответы в Telegram от имени назначенного менеджера** (текст с подписью в чате).
+Телеграм-бот поддержки на **Supabase Edge Functions** и **grammY**: входящие сообщения обрабатываются вебхуком, сохраняются в PostgreSQL (`clients` + `messages`), пользователю отправляется эхо-ответ с текстом сообщения. **Админ-панель** (Next.js) показывает диалоги, сообщения, назначение менеджеров, **статусы диалогов**, а также позволяет **отвечать в Telegram от имени назначенного менеджера** (исходящее сообщение записывается в БД и отправляется через Bot API).
 
 ## Возможности
 
 - Приём апдейтов через HTTPS-вебхук (без long polling).
 - Сохранение в БД: upsert клиента по `chat_id` в `public.clients`, вставка строки в `public.messages` (`client_id`, `text_content` — текст или подпись к медиа).
 - Ответ в чат с цитированием исходного сообщения.
-- В админке: список диалогов (`message_dialogs`), сообщения по чату (входящие и исходящие из панели), назначение менеджера через `set_client_assignment`, ответ клиенту через `insert_manager_reply` + Bot API `sendMessage` (только у **текущего** ответственного).
+- В админке:
+  - список диалогов (`message_dialogs`) + счётчики и сортировка по последнему сообщению;
+  - сообщения по чату (входящие из Telegram и исходящие из панели);
+  - назначение менеджера через `set_client_assignment`;
+  - статусы диалогов (**Новый / В работе / Ждём клиента / Закрыт**) + фильтр и цветные бейджи;
+  - ответ клиенту через `insert_manager_reply` + Bot API `sendMessage` (только у **текущего** ответственного).
+- Realtime (WebSocket) в админке: новые сообщения и обновления сайдбара приходят автоматически через Supabase Realtime.
 
 ## Стек
 
@@ -69,6 +75,7 @@ supabase secrets set TELEGRAM_BOT_TOKEN=your_token
 |------------|----------|
 | `NEXT_PUBLIC_SUPABASE_URL` | URL проекта |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Anon key (клиент + сервер через SSR) |
+| `NEXT_PUBLIC_SITE_URL` | Базовый URL админки (для ссылок из reset-password flow). Локально: `http://localhost:3000`, на Vercel: `https://<app>.vercel.app`. |
 | `TELEGRAM_BOT_TOKEN` | Тот же токен бота, что у вебхука — **только на сервере** Next.js (server actions), для отправки ответов менеджера в Telegram. Не префикс `NEXT_PUBLIC_`. |
 
 Без `TELEGRAM_BOT_TOKEN` в окружении админки кнопка «Отправить» в диалоге вернёт ошибку конфигурации.
@@ -140,12 +147,19 @@ supabase functions deploy tg-webhook
 | Объект | Назначение |
 |--------|------------|
 | **`public.clients`** | Один диалог Telegram на `chat_id` (уникальный); профиль (`username`, имена, `telegram_user_id`). |
-| **`public.messages`** | Сообщения: `client_id`, `created_at`, `text_content`. |
+| **`public.messages`** | Сообщения: `client_id`, `created_at`, `text_content`, `direction` (`inbound`/`outbound`), `sent_by_manager_id` (для outbound). |
+| **`public.dialogs`** | Read-model для быстрого списка диалогов: `last_message_at`, `last_message_text`, `messages_count`. Обновляется триггером на `messages`. |
 | **`public.managers`** | Профиль менеджера: `user_id` → `auth.users`, ФИО, `company_role`. |
 | **`public.client_assignments`** | Необязательная строка `0..1` на клиента: `current_manager_id`, `assigned_by_manager_id` → `managers`. Создаётся при первом вызове RPC `set_client_assignment`. |
-| **`message_dialogs`**, **`message_stats`** | Представления: список диалогов для админки и глобальные метрики. |
+| **`public.client_dialog_states`** | Статус обработки диалога (workflow): `status` = `new` / `in_progress` / `waiting_client` / `closed`. |
+| **`message_dialogs`**, **`message_stats`** | Представления: список диалогов для админки и глобальные метрики. `message_dialogs` читает агрегаты из `dialogs`. |
 
 Миграции в `supabase/migrations/` накатываются по имени файла (timestamp). Схема на диаграмме: `docs/erd.puml`.
+
+### Realtime (Supabase)
+
+Чтобы админка получала события `postgres_changes` по WebSocket, таблицы должны быть включены в публикацию `supabase_realtime`.
+В проекте это делается миграцией `supabase/migrations/20260422120000_enable_realtime_for_messages_and_dialogs.sql` (для `public.messages` и `public.dialogs`).
 
 ## Полезные ссылки
 
