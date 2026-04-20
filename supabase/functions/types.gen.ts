@@ -133,6 +133,45 @@ export type Database = {
         }
         Relationships: []
       }
+      dialogs: {
+        Row: {
+          client_id: string
+          last_message_at: string | null
+          last_message_text: string | null
+          messages_count: number
+          updated_at: string
+        }
+        Insert: {
+          client_id: string
+          last_message_at?: string | null
+          last_message_text?: string | null
+          messages_count?: number
+          updated_at?: string
+        }
+        Update: {
+          client_id?: string
+          last_message_at?: string | null
+          last_message_text?: string | null
+          messages_count?: number
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "dialogs_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: true
+            referencedRelation: "clients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "dialogs_client_id_fkey"
+            columns: ["client_id"]
+            isOneToOne: true
+            referencedRelation: "message_dialogs"
+            referencedColumns: ["client_id"]
+          },
+        ]
+      }
       managers: {
         Row: {
           company_role: string

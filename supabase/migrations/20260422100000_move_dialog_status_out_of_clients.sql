@@ -95,12 +95,11 @@ select
     )
     limit 1
   ) as assigned_by_manager_last_name,
-  max(m.created_at) as last_message_at,
-  count(*)::bigint as messages_count
-from public.messages as m
-join public.clients as c on c.id = m.client_id
-left join public.client_dialog_states cds on cds.client_id = c.id
-group by c.id, cds.status;
+  d.last_message_at,
+  d.messages_count
+from public.clients as c
+join public.dialogs as d on d.client_id = c.id
+left join public.client_dialog_states cds on cds.client_id = c.id;
 
 grant select on public.message_dialogs to anon, authenticated;
 
