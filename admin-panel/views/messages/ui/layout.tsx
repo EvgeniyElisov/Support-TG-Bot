@@ -21,6 +21,7 @@ import type { Database } from "@/types/supabase-database";
 
 import { ConversationHeader } from "./conversation-header";
 import { DialogStatusFilterBar } from "./dialog-status-filter";
+import { DIALOGS_PER_PAGE } from "../model/constants";
 
 type LayoutProps = {
   dialogs: MessageDialogRecord[];
@@ -84,6 +85,46 @@ export function Layout({
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
 
+    const fetchDialogByClientId = async (clientId: string) => {
+      const { data, error } = await supabase
+        .from("message_dialogs")
+        .select(
+          [
+            "client_id",
+            "chat_id",
+            "username",
+            "first_name",
+            "last_name",
+            "dialog_status",
+            "last_message_at",
+            "messages_count",
+            "current_manager_id",
+            "assigned_by_manager_id",
+            "current_manager_first_name",
+            "current_manager_last_name",
+            "assigned_by_manager_first_name",
+            "assigned_by_manager_last_name",
+          ].join(", "),
+        )
+        .eq("client_id", clientId)
+        .maybeSingle();
+
+      if (error || !data) return null;
+      return data as unknown as MessageDialogRecord;
+    };
+
+    const upsertDialogToTop = (dialog: MessageDialogRecord) => {
+      if (statusFilter !== "all" && dialog.dialog_status !== statusFilter) {
+        setDialogsState((prev) => prev.filter((d) => d.client_id !== dialog.client_id));
+        return;
+      }
+
+      setDialogsState((prev) => {
+        const without = prev.filter((d) => d.client_id !== dialog.client_id);
+        return [dialog, ...without].slice(0, DIALOGS_PER_PAGE);
+      });
+    };
+
     const dialogsChannel = supabase
       .channel("dialogs-sidebar")
       .on(
@@ -97,7 +138,13 @@ export function Layout({
 
           setDialogsState((prev) => {
             const idx = prev.findIndex((d) => d.client_id === clientId);
-            if (idx === -1) return prev;
+            if (idx === -1) {
+              void fetchDialogByClientId(clientId).then((dialog) => {
+                if (!dialog) return;
+                upsertDialogToTop(dialog);
+              });
+              return prev;
+            }
             const next = [...prev];
             const updated: MessageDialogRecord = {
               ...next[idx],
@@ -115,6 +162,19 @@ export function Layout({
               last_message_at: lastMessageAt ?? prev.last_message_at,
               messages_count: messagesCount,
             };
+          });
+        },
+      )
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "dialogs" },
+        (payload) => {
+          const row = payload.new as Database["public"]["Tables"]["dialogs"]["Row"];
+          const clientId = row.client_id;
+
+          void fetchDialogByClientId(clientId).then((dialog) => {
+            if (!dialog) return;
+            upsertDialogToTop(dialog);
           });
         },
       )
