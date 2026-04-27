@@ -68,8 +68,15 @@ export function Layout({
   const [claimsByClientId, setClaimsByClientId] = useState<
     Record<string, { user_id: string; name: string; at: string; expires_at: number } | undefined>
   >({});
+  const dialogsDashboardChannelRef = useRef<ReturnType<ReturnType<typeof createSupabaseBrowserClient>["channel"]> | null>(
+    null,
+  );
 
   const knownMessageIds = useRef<Set<string>>(new Set(messages.map((m) => m.id)));
+  const activeDialogRef = useRef<MessageDialogRecord>(activeDialog);
+  const dialogsByClientIdRef = useRef<Map<string, MessageDialogRecord>>(
+    new Map(dialogs.map((d) => [d.client_id, d])),
+  );
 
   const managerById = useMemo(() => {
     return new Map(
@@ -94,6 +101,14 @@ export function Layout({
     knownMessageIds.current = new Set(messages.map((m) => m.id));
     setHasNewMessages(false);
   }, [messages, activeDialog.client_id]);
+
+  useEffect(() => {
+    activeDialogRef.current = activeDialogState;
+  }, [activeDialogState]);
+
+  useEffect(() => {
+    dialogsByClientIdRef.current = new Map(dialogsState.map((d) => [d.client_id, d]));
+  }, [dialogsState]);
 
   // Realtime: обновления сайдбара (dialogs) и новые сообщения в активном чате (messages).
   useEffect(() => {
@@ -222,7 +237,10 @@ export function Layout({
         "postgres_changes",
         { event: "*", schema: "public", table: "client_assignments" },
         (payload) => {
-          const row = payload.new as Database["public"]["Tables"]["client_assignments"]["Row"];
+          const row =
+            (payload.new as Database["public"]["Tables"]["client_assignments"]["Row"] | null) ??
+            (payload.old as Database["public"]["Tables"]["client_assignments"]["Row"] | null);
+          if (!row) return;
           const clientId = row.client_id;
 
           void fetchDialogByClientId(clientId).then((dialog) => {
@@ -239,7 +257,10 @@ export function Layout({
         "postgres_changes",
         { event: "*", schema: "public", table: "client_dialog_states" },
         (payload) => {
-          const row = payload.new as Database["public"]["Tables"]["client_dialog_states"]["Row"];
+          const row =
+            (payload.new as Database["public"]["Tables"]["client_dialog_states"]["Row"] | null) ??
+            (payload.old as Database["public"]["Tables"]["client_dialog_states"]["Row"] | null);
+          if (!row) return;
           const clientId = row.client_id;
 
           void fetchDialogByClientId(clientId).then((dialog) => {
@@ -263,6 +284,7 @@ export function Layout({
         },
         (payload) => {
           const row = payload.new as Database["public"]["Tables"]["messages"]["Row"];
+          if (row.client_id !== activeClientId) return;
           if (knownMessageIds.current.has(row.id)) return;
           knownMessageIds.current.add(row.id);
 
@@ -273,6 +295,12 @@ export function Layout({
 
           const mgr =
             row.sent_by_manager_id != null ? managerById.get(row.sent_by_manager_id) : undefined;
+
+          const dialogForMessage =
+            activeDialogRef.current.client_id === row.client_id
+              ? activeDialogRef.current
+              : dialogsByClientIdRef.current.get(row.client_id) ?? null;
+          if (!dialogForMessage) return;
 
           const record: MessageRecord = {
             id: row.id,
@@ -286,10 +314,10 @@ export function Layout({
             manager_first_name: mgr?.first_name ?? null,
             manager_last_name: mgr?.last_name ?? null,
             manager_company_role: mgr?.company_role ?? null,
-            chat_id: activeDialogState.chat_id,
-            username: activeDialogState.username,
-            first_name: activeDialogState.first_name,
-            last_name: activeDialogState.last_name,
+            chat_id: dialogForMessage.chat_id,
+            username: dialogForMessage.username,
+            first_name: dialogForMessage.first_name,
+            last_name: dialogForMessage.last_name,
           };
 
           setMessagesState((prev) => [record, ...prev]);
@@ -421,8 +449,10 @@ export function Layout({
 
     const interval = window.setInterval(prune, 5_000);
 
-    const channel = supabase
-      .channel("dialogs:dashboard")
+    const channel = supabase.channel("dialogs:dashboard");
+    dialogsDashboardChannelRef.current = channel;
+
+    channel
       .on("broadcast", { event: "dialog:claim" }, ({ payload }) => {
         const p = payload as Partial<DialogClaimPayload> | null;
         const clientId = typeof p?.client_id === "string" ? p.client_id : null;
@@ -453,12 +483,16 @@ export function Layout({
             },
           }));
         }
-      })
-      .subscribe();
+      });
+
+    void channel.subscribe();
 
     return () => {
       window.clearInterval(interval);
       supabase.removeChannel(channel);
+      if (dialogsDashboardChannelRef.current === channel) {
+        dialogsDashboardChannelRef.current = null;
+      }
     };
   }, []);
 
@@ -466,28 +500,25 @@ export function Layout({
   useEffect(() => {
     if (!sessionUserId) return;
 
-    const supabase = createSupabaseBrowserClient();
     const self = managerById.get(sessionUserId);
     const name =
       [self?.first_name, self?.last_name].filter(Boolean).join(" ") ||
       self?.company_role ||
       sessionUserId.slice(0, 8);
 
-    const channel = supabase.channel("dialogs:dashboard");
+    const channel = dialogsDashboardChannelRef.current;
+    if (!channel) return;
     const clientId = activeDialog.client_id;
 
-    void channel.subscribe(async (status) => {
-      if (status !== "SUBSCRIBED") return;
-      await channel.send({
-        type: "broadcast",
-        event: "dialog:claim",
-        payload: {
-          client_id: clientId,
-          kind: "opened",
-          claimed_by: { user_id: sessionUserId, name },
-          at: new Date().toISOString(),
-        } satisfies DialogClaimPayload,
-      });
+    void channel.send({
+      type: "broadcast",
+      event: "dialog:claim",
+      payload: {
+        client_id: clientId,
+        kind: "opened",
+        claimed_by: { user_id: sessionUserId, name },
+        at: new Date().toISOString(),
+      } satisfies DialogClaimPayload,
     });
 
     return () => {
@@ -501,7 +532,6 @@ export function Layout({
           at: new Date().toISOString(),
         } satisfies DialogClaimPayload,
       });
-      supabase.removeChannel(channel);
     };
   }, [activeDialog.client_id, managerById, sessionUserId]);
 
