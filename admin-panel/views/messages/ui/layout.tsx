@@ -16,6 +16,7 @@ import type {
   MessageRecord,
 } from "@/entities/message/model/types";
 import type { DialogStatusFilter } from "@/entities/message/model/dialog-status";
+import type { DialogAssigneeFilter } from "@/entities/message/model/dialog-assignee-filter";
 import { ManagerReplyComposer } from "@/features/manager-reply";
 import type { Database } from "@/types/supabase-database";
 
@@ -41,6 +42,7 @@ type LayoutProps = {
   sessionUserId: string | null;
   canReply: boolean;
   statusFilter: DialogStatusFilter;
+  assigneeFilter: DialogAssigneeFilter;
 };
 
 export function Layout({
@@ -54,6 +56,7 @@ export function Layout({
   sessionUserId,
   canReply,
   statusFilter,
+  assigneeFilter,
 }: LayoutProps) {
   const router = useRouter();
 
@@ -116,6 +119,19 @@ export function Layout({
 
     setDialogViewers([]);
 
+    const matchesFilters = (dialog: MessageDialogRecord) => {
+      if (statusFilter !== "all" && dialog.dialog_status !== statusFilter) return false;
+
+      if (assigneeFilter === "all") return true;
+      if (assigneeFilter === "unassigned") return dialog.current_manager_id == null;
+      if (assigneeFilter === "mine") return sessionUserId != null && dialog.current_manager_id === sessionUserId;
+      if (assigneeFilter === "others") {
+        if (!dialog.current_manager_id) return false;
+        return sessionUserId != null ? dialog.current_manager_id !== sessionUserId : true;
+      }
+      return true;
+    };
+
     const fetchDialogByClientId = async (clientId: string) => {
       const { data, error } = await supabase
         .from("message_dialogs")
@@ -145,7 +161,7 @@ export function Layout({
     };
 
     const upsertDialogToTop = (dialog: MessageDialogRecord) => {
-      if (statusFilter !== "all" && dialog.dialog_status !== statusFilter) {
+      if (!matchesFilters(dialog)) {
         setDialogsState((prev) => prev.filter((d) => d.client_id !== dialog.client_id));
         return;
       }
@@ -157,7 +173,7 @@ export function Layout({
     };
 
     const mergeDialogInList = (dialog: MessageDialogRecord) => {
-      if (statusFilter !== "all" && dialog.dialog_status !== statusFilter) {
+      if (!matchesFilters(dialog)) {
         setDialogsState((prev) => prev.filter((d) => d.client_id !== dialog.client_id));
         return;
       }
@@ -362,7 +378,7 @@ export function Layout({
       supabase.removeChannel(dialogsChannel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeDialog.client_id, currentPage, managerById]);
+  }, [activeDialog.client_id, currentPage, managerById, assigneeFilter, sessionUserId, statusFilter]);
 
   // Presence: кто смотрит активный диалог.
   useEffect(() => {
@@ -608,7 +624,11 @@ export function Layout({
           <p className="font-heading mt-0.5 text-sm font-semibold text-zinc-200">Диалоги</p>
         </div>
         <div className="shrink-0 border-b border-white/10 px-4 py-3">
-          <DialogStatusFilterBar active={statusFilter} selectedChatId={selectedChatId} />
+          <DialogStatusFilterBar
+            active={statusFilter}
+            assignee={assigneeFilter}
+            selectedChatId={selectedChatId}
+          />
         </div>
         <div className="min-h-0 flex-1 overflow-y-auto px-3 pb-4 pt-2">
           <DialogList
@@ -617,6 +637,7 @@ export function Layout({
             managers={managers}
             sessionUserId={sessionUserId}
             statusFilter={statusFilter}
+            assigneeFilter={assigneeFilter}
             claimsByClientId={Object.fromEntries(
               Object.entries(claimsByClientId).map(([k, v]) => [
                 k,
@@ -664,6 +685,7 @@ export function Layout({
                         chat: activeDialogState.chat_id,
                         page: 1,
                         status: statusFilter,
+                        assignee: assigneeFilter,
                       }),
                     );
                   }}
@@ -702,6 +724,7 @@ export function Layout({
               currentPage={currentPage}
               totalPages={totalPages}
               statusFilter={statusFilter}
+              assigneeFilter={assigneeFilter}
             />
           </div>
         </div>

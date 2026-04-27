@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { buildDashboardUrl } from "@/entities/message/lib/dashboard-url";
 import type { DialogStatusFilter } from "@/entities/message/model/dialog-status";
+import type { DialogAssigneeFilter } from "@/entities/message/model/dialog-assignee-filter";
 import { formatMessageDate, getAvatarInitial, getDisplayName } from "../lib";
 import type { ManagerDirectoryEntry, MessageDialogRecord } from "../model/types";
 
@@ -21,6 +22,7 @@ type DialogListProps = {
   managers: ManagerDirectoryEntry[];
   sessionUserId: string | null;
   statusFilter: DialogStatusFilter;
+  assigneeFilter: DialogAssigneeFilter;
   claimsByClientId?: Record<string, DialogClaim | undefined>;
 };
 
@@ -30,6 +32,7 @@ export function DialogList({
   managers,
   sessionUserId,
   statusFilter,
+  assigneeFilter,
   claimsByClientId,
 }: DialogListProps) {
   if (dialogs.length === 0) {
@@ -51,6 +54,7 @@ export function DialogList({
           chat: dialog.chat_id,
           page: 1,
           status: statusFilter,
+          assignee: assigneeFilter,
         });
 
         return (

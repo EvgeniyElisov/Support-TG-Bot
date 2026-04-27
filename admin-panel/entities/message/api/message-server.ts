@@ -1,4 +1,5 @@
 import type { DialogStatusFilter } from "../model/dialog-status";
+import type { DialogAssigneeFilter } from "../model/dialog-assignee-filter";
 import type {
   MessageDialogRecord,
   MessageRecord,
@@ -39,6 +40,8 @@ function mapDialogRow(row: Record<string, unknown>): MessageDialogRecord {
 export async function getDialogsAndStats(
   limit: number,
   statusFilter: DialogStatusFilter = "all",
+  assigneeFilter: DialogAssigneeFilter = "all",
+  sessionUserId: string | null = null,
 ): Promise<DialogsAndStatsData> {
   const supabase = await createSupabaseServerClient();
 
@@ -50,6 +53,19 @@ export async function getDialogsAndStats(
 
   if (statusFilter !== "all") {
     dialogsQuery = dialogsQuery.eq("dialog_status", statusFilter);
+  }
+
+  if (assigneeFilter === "mine") {
+    if (sessionUserId) {
+      dialogsQuery = dialogsQuery.eq("current_manager_id", sessionUserId);
+    }
+  } else if (assigneeFilter === "unassigned") {
+    dialogsQuery = dialogsQuery.is("current_manager_id", null);
+  } else if (assigneeFilter === "others") {
+    dialogsQuery = dialogsQuery.not("current_manager_id", "is", null);
+    if (sessionUserId) {
+      dialogsQuery = dialogsQuery.neq("current_manager_id", sessionUserId);
+    }
   }
 
   const [{ data: dialogs, error: dialogsError }, { data: stats, error: statsError }] =

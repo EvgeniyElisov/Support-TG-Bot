@@ -34,6 +34,14 @@ export function DialogAssignmentSelect({
 
   const labelMetaClass = isActive ? "text-[#e8ffc4]/95" : "text-zinc-500";
   const borderTopClass = isActive ? "border-[#c8ff3d]/20" : "border-white/10";
+  const currentManagerLabel = dialog.current_manager_id
+    ? ([dialog.current_manager_first_name, dialog.current_manager_last_name].filter(Boolean).join(" ") || "Назначен")
+    : "Не назначен";
+  const currentManagerPillClass = dialog.current_manager_id
+    ? (sessionUserId && dialog.current_manager_id === sessionUserId
+        ? "border-[#c8ff3d]/35 bg-[#c8ff3d]/12 text-[#e8ffc4]"
+        : "border-[#2dd4bf]/30 bg-[#2dd4bf]/10 text-[#9af3e7]")
+    : "border-white/12 bg-white/6 text-zinc-300";
 
   return (
     <form
@@ -42,18 +50,21 @@ export function DialogAssignmentSelect({
       key={`${dialog.client_id}-${dialog.current_manager_id ?? ""}`}
     >
       <input type="hidden" name="client_id" value={dialog.client_id} />
-      <label
-        className={`mb-1 block text-[10px] font-medium uppercase tracking-wide ${labelMetaClass}`}
-      >
-        Ответственный
-      </label>
+      <div className="mb-1 flex items-center justify-between gap-2">
+        <label className={`block text-[10px] font-bold uppercase tracking-[0.2em] ${labelMetaClass}`}>
+          Ответственный
+        </label>
+        <span className={`rounded-xl border px-2 py-1 text-[11px] font-extrabold ${currentManagerPillClass}`}>
+          {currentManagerLabel}
+        </span>
+      </div>
       <select
         name="assigned_to"
         defaultValue={currentValue}
         onChange={(e) => {
           e.currentTarget.form?.requestSubmit();
         }}
-        className={`w-full rounded-lg border px-2 py-1.5 text-xs ${
+        className={`w-full rounded-xl border px-3 py-2 text-[13px] font-semibold ${
           isActive
             ? "border-[#c8ff3d]/35 bg-black/60 text-zinc-100"
             : "border-white/15 bg-black/40 text-zinc-100"

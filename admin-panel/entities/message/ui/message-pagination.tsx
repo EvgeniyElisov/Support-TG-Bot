@@ -2,12 +2,14 @@ import Link from "next/link";
 
 import { buildDashboardUrl } from "@/entities/message/lib/dashboard-url";
 import type { DialogStatusFilter } from "@/entities/message/model/dialog-status";
+import type { DialogAssigneeFilter } from "@/entities/message/model/dialog-assignee-filter";
 
 type MessagePaginationProps = {
   chatId: number;
   currentPage: number;
   totalPages: number;
   statusFilter: DialogStatusFilter;
+  assigneeFilter: DialogAssigneeFilter;
 };
 
 export function MessagePagination({
@@ -15,16 +17,19 @@ export function MessagePagination({
   currentPage,
   totalPages,
   statusFilter,
+  assigneeFilter,
 }: MessagePaginationProps) {
   const prevPageHref = buildDashboardUrl({
     chat: chatId,
     page: Math.max(1, currentPage - 1),
     status: statusFilter,
+    assignee: assigneeFilter,
   });
   const nextPageHref = buildDashboardUrl({
     chat: chatId,
     page: Math.min(totalPages, currentPage + 1),
     status: statusFilter,
+    assignee: assigneeFilter,
   });
 
   return (

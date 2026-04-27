@@ -1,5 +1,6 @@
 import type { MessageStatsRecord } from "@/entities/message/model/types";
 import type { DialogStatusFilter } from "@/entities/message/model/dialog-status";
+import type { DialogAssigneeFilter } from "@/entities/message/model/dialog-assignee-filter";
 
 import { MessageStatsBar } from "@/entities/message/ui";
 
@@ -8,16 +9,17 @@ import { DialogStatusFilterBar } from "./dialog-status-filter";
 type EmptyStateProps = {
   stats: MessageStatsRecord;
   statusFilter: DialogStatusFilter;
+  assigneeFilter: DialogAssigneeFilter;
 };
 
-export function EmptyState({ stats, statusFilter }: EmptyStateProps) {
+export function EmptyState({ stats, statusFilter, assigneeFilter }: EmptyStateProps) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <div className="shrink-0 border-b border-white/10 px-4 py-5 sm:px-6 lg:px-8">
         <MessageStatsBar stats={stats} />
       </div>
       <div className="shrink-0 border-b border-white/10 px-4 py-4 sm:px-6 lg:px-8">
-        <DialogStatusFilterBar active={statusFilter} selectedChatId={null} />
+        <DialogStatusFilterBar active={statusFilter} assignee={assigneeFilter} selectedChatId={null} />
       </div>
       <div className="flex flex-1 flex-col items-center justify-center px-4 py-16 sm:px-6 lg:px-8">
         <div className="relative mx-auto max-w-md text-center">

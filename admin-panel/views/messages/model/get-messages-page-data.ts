@@ -7,6 +7,7 @@ import {
 import {
   buildDashboardUrl,
   getSingleSearchParam,
+  parseDialogAssigneeFilter,
   parseDialogStatusFilter,
   parsePositiveInteger,
 } from "@/entities/message/lib";
@@ -23,17 +24,19 @@ export async function getMessagesPageData(searchParams: SearchParamsInput): Prom
   const chatParam = getSingleSearchParam(resolvedSearchParams.chat);
   const pageParam = getSingleSearchParam(resolvedSearchParams.page);
   const statusParam = getSingleSearchParam(resolvedSearchParams.status);
+  const assigneeParam = getSingleSearchParam(resolvedSearchParams.assignee);
   const statusFilter = parseDialogStatusFilter(statusParam);
+  const assigneeFilter = parseDialogAssigneeFilter(assigneeParam);
 
   const supabase = await createSupabaseServerClient();
 
-  const [{ dialogs: dialogsRaw, stats }, managers, { data: userData }] = await Promise.all([
-    getDialogsAndStats(DIALOGS_PER_PAGE, statusFilter),
-    getManagersDirectory(),
-    supabase.auth.getUser(),
-  ]);
-
+  const { data: userData } = await supabase.auth.getUser();
   const sessionUserId = userData.user?.id ?? null;
+
+  const [{ dialogs: dialogsRaw, stats }, managers] = await Promise.all([
+    getDialogsAndStats(DIALOGS_PER_PAGE, statusFilter, assigneeFilter, sessionUserId),
+    getManagersDirectory(),
+  ]);
 
   const selectedChatFromQuery = parsePositiveInteger(chatParam);
 
@@ -54,6 +57,22 @@ export async function getMessagesPageData(searchParams: SearchParamsInput): Prom
     selectedDialog = null;
   }
 
+  if (selectedDialog && assigneeFilter !== "all") {
+    const assignedTo = selectedDialog.current_manager_id;
+    const matches =
+      assigneeFilter === "unassigned"
+        ? assignedTo == null
+        : assigneeFilter === "mine"
+          ? sessionUserId != null && assignedTo === sessionUserId
+          : assigneeFilter === "others"
+            ? assignedTo != null && (sessionUserId ? assignedTo !== sessionUserId : true)
+            : true;
+
+    if (!matches) {
+      selectedDialog = null;
+    }
+  }
+
   if (!selectedDialog) {
     selectedDialog = dialogsRaw[0] ?? null;
   }
@@ -67,6 +86,7 @@ export async function getMessagesPageData(searchParams: SearchParamsInput): Prom
       buildDashboardUrl({
         chat: selectedDialog.chat_id,
         status: statusFilter,
+        assignee: assigneeFilter,
         page: 1,
       }),
     );
@@ -92,6 +112,7 @@ export async function getMessagesPageData(searchParams: SearchParamsInput): Prom
       sessionUserId,
       canReply: false as const,
       statusFilter,
+      assigneeFilter,
     };
   }
 
@@ -120,5 +141,6 @@ export async function getMessagesPageData(searchParams: SearchParamsInput): Prom
     sessionUserId,
     canReply,
     statusFilter,
+    assigneeFilter,
   };
 }

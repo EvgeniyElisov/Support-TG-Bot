@@ -8,5 +8,6 @@ export { buildDashboardUrl } from "./dashboard-url";
 export {
   getSingleSearchParam,
   parseDialogStatusFilter,
+  parseDialogAssigneeFilter,
   parsePositiveInteger,
 } from "./query-params";

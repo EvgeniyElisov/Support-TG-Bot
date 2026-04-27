@@ -10,6 +10,7 @@ export function getSingleSearchParam(
 
 import type { DialogStatusFilter } from "../model/dialog-status";
 import { DIALOG_STATUSES } from "../model/dialog-status";
+import { DIALOG_ASSIGNEE_FILTERS, type DialogAssigneeFilter } from "../model/dialog-assignee-filter";
 
 export function parseDialogStatusFilter(value: string | undefined): DialogStatusFilter {
   if (!value) {
@@ -20,6 +21,14 @@ export function parseDialogStatusFilter(value: string | undefined): DialogStatus
   }
   if ((DIALOG_STATUSES as readonly string[]).includes(value)) {
     return value as DialogStatusFilter;
+  }
+  return "all";
+}
+
+export function parseDialogAssigneeFilter(value: string | undefined): DialogAssigneeFilter {
+  if (!value) return "all";
+  if ((DIALOG_ASSIGNEE_FILTERS as readonly string[]).includes(value)) {
+    return value as DialogAssigneeFilter;
   }
   return "all";
 }

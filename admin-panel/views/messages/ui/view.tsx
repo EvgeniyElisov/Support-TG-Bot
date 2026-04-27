@@ -10,7 +10,13 @@ type ViewProps = {
 
 export function View({ data }: ViewProps) {
   if (!data.selectedDialog) {
-    return <EmptyState stats={data.stats} statusFilter={data.statusFilter} />;
+    return (
+      <EmptyState
+        stats={data.stats}
+        statusFilter={data.statusFilter}
+        assigneeFilter={data.assigneeFilter}
+      />
+    );
   }
 
   return (
@@ -30,6 +36,7 @@ export function View({ data }: ViewProps) {
           sessionUserId={data.sessionUserId}
           canReply={data.canReply}
           statusFilter={data.statusFilter}
+          assigneeFilter={data.assigneeFilter}
         />
       </div>
     </div>

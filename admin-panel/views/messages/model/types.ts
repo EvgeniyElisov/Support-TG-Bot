@@ -1,4 +1,5 @@
 import type { DialogStatusFilter } from "@/entities/message/model/dialog-status";
+import type { DialogAssigneeFilter } from "@/entities/message/model/dialog-assignee-filter";
 import type {
   ManagerDirectoryEntry,
   MessageDialogRecord,
@@ -18,6 +19,7 @@ export type MessagesPageData =
       sessionUserId: string | null;
       canReply: false;
       statusFilter: DialogStatusFilter;
+      assigneeFilter: DialogAssigneeFilter;
     }
   | {
       stats: MessageStatsRecord;
@@ -30,4 +32,5 @@ export type MessagesPageData =
       sessionUserId: string | null;
       canReply: boolean;
       statusFilter: DialogStatusFilter;
+      assigneeFilter: DialogAssigneeFilter;
     };

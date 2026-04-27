@@ -1,6 +1,10 @@
+"use client";
+
+import { useActionState } from "react";
 import { getAvatarInitial, getDisplayName } from "@/entities/message/lib";
 import type { MessageDialogRecord } from "@/entities/message/model/types";
 import { DialogStatusBadge, DialogStatusSelect } from "@/features/dialog-status";
+import { setClientAssignmentAction } from "@/features/client-assignment/api/set-client-assignment";
 
 type DialogViewer = {
   user_id: string;
@@ -24,6 +28,7 @@ export function ConversationHeader({
   claimedBy,
   typingLabel,
 }: ConversationHeaderProps) {
+  const [assignmentState, assignmentAction] = useActionState(setClientAssignmentAction, null);
   const title = getDisplayName(dialog);
   const initial = getAvatarInitial(dialog);
   const otherViewers = (viewers ?? []).filter((v) => (sessionUserId ? v.user_id !== sessionUserId : true));
@@ -92,6 +97,21 @@ export function ConversationHeader({
           <div className="sm:hidden">
             <DialogStatusBadge status={dialog.dialog_status} />
           </div>
+          {sessionUserId && dialog.current_manager_id !== sessionUserId ? (
+            <form action={assignmentAction} key={`${dialog.client_id}-${dialog.current_manager_id ?? ""}`}>
+              <input type="hidden" name="client_id" value={dialog.client_id} />
+              <input type="hidden" name="assigned_to" value={sessionUserId} />
+              <button
+                type="submit"
+                className="font-heading rounded-xl bg-[#c8ff3d] px-4 py-2.5 text-sm font-extrabold tracking-wide text-black shadow-[0_0_28px_-10px_rgba(200,255,61,0.45)] transition hover:bg-[#d8ff6a]"
+              >
+                Назначить на себя
+              </button>
+              {assignmentState?.error ? (
+                <p className="mt-1 text-xs text-rose-200">{assignmentState.error}</p>
+              ) : null}
+            </form>
+          ) : null}
           <DialogStatusSelect clientId={dialog.client_id} value={dialog.dialog_status} />
         </div>
       </div>
