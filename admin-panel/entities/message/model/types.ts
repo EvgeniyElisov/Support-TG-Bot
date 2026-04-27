@@ -9,6 +9,10 @@ export type MessageRecord = {
   created_at: string;
   text_content: string | null;
   direction: "inbound" | "outbound";
+  delivered_at: string | null;
+  read_at: string | null;
+  failed_at: string | null;
+  send_error: string | null;
   manager_first_name: string | null;
   manager_last_name: string | null;
   manager_company_role: string | null;

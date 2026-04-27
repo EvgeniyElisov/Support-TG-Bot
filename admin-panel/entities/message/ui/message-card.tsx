@@ -18,8 +18,17 @@ function formatSenderLabel(message: MessageRecord): string {
   return getDisplayName(message);
 }
 
+function formatOutboundStatus(message: MessageRecord): string | null {
+  if (message.direction !== "outbound") return null;
+  if (message.failed_at) return "Failed";
+  if (message.read_at) return "Read";
+  if (message.delivered_at) return "Delivered";
+  return "Sent";
+}
+
 export function MessageCard({ message }: MessageCardProps) {
   const isOutbound = message.direction === "outbound";
+  const status = formatOutboundStatus(message);
 
   return (
     <li className="relative pl-6 last:[&>div]:pb-3">
@@ -36,12 +45,26 @@ export function MessageCard({ message }: MessageCardProps) {
           >
             {formatSenderLabel(message)}
           </span>
-          <time
-            className="text-[11px] font-medium tabular-nums text-zinc-500"
-            dateTime={message.created_at}
-          >
-            {formatMessageDate(message.created_at)}
-          </time>
+          <div className="flex items-center gap-2">
+            {status ? (
+              <span
+                className={`rounded-md border px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
+                  status === "Failed"
+                    ? "border-rose-400/25 bg-rose-400/10 text-rose-200"
+                    : "border-white/10 bg-white/5 text-zinc-400"
+                }`}
+                title={status === "Failed" ? message.send_error ?? "Send failed" : undefined}
+              >
+                {status}
+              </span>
+            ) : null}
+            <time
+              className="text-[11px] font-medium tabular-nums text-zinc-500"
+              dateTime={message.created_at}
+            >
+              {formatMessageDate(message.created_at)}
+            </time>
+          </div>
         </div>
         <p className="whitespace-pre-wrap wrap-break-word text-sm leading-relaxed text-zinc-300">
           {getDisplayText(message)}

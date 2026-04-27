@@ -8,12 +8,20 @@ import type { ManagerDirectoryEntry, MessageDialogRecord } from "../model/types"
 import { DialogAssignmentSelect } from "./dialog-assignment-select";
 import { DialogStatusBadge } from "@/features/dialog-status";
 
+type DialogClaim = {
+  user_id: string;
+  name: string;
+  kind: "opened" | "release";
+  at: string;
+};
+
 type DialogListProps = {
   dialogs: MessageDialogRecord[];
   selectedChatId: number | null;
   managers: ManagerDirectoryEntry[];
   sessionUserId: string | null;
   statusFilter: DialogStatusFilter;
+  claimsByClientId?: Record<string, DialogClaim | undefined>;
 };
 
 export function DialogList({
@@ -22,6 +30,7 @@ export function DialogList({
   managers,
   sessionUserId,
   statusFilter,
+  claimsByClientId,
 }: DialogListProps) {
   if (dialogs.length === 0) {
     return (
@@ -36,6 +45,8 @@ export function DialogList({
       {dialogs.map((dialog) => {
         const isActive = dialog.chat_id === selectedChatId;
         const initial = getAvatarInitial(dialog);
+        const claim = claimsByClientId?.[dialog.client_id];
+        const claimedByOther = claim && sessionUserId && claim.user_id !== sessionUserId;
         const href = buildDashboardUrl({
           chat: dialog.chat_id,
           page: 1,
@@ -70,6 +81,11 @@ export function DialogList({
                       </span>
                       <div className="flex shrink-0 items-center gap-1.5">
                         <DialogStatusBadge status={dialog.dialog_status} />
+                        {claimedByOther ? (
+                          <span className="rounded-md bg-[#2dd4bf]/10 px-1.5 py-0.5 text-[10px] font-bold text-[#7ee7d7]">
+                            открыт: {claim.name}
+                          </span>
+                        ) : null}
                         <span
                           className={`rounded-md px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${
                             isActive

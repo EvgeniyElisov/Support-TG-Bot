@@ -99,6 +99,15 @@ export async function sendManagerReplyAction(
     return { error: "Сообщение слишком длинное для Telegram (макс. 4096 символов)" };
   }
 
+  const { data: messageId, error: rpcError } = await supabase.rpc("insert_manager_reply", {
+    p_client_id: clientIdRaw,
+    p_text: replyText,
+  });
+
+  if (rpcError) {
+    return { error: rpcError.message };
+  }
+
   const tgRes = await fetch(`${TELEGRAM_API}/bot${botToken}/sendMessage`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
@@ -111,18 +120,23 @@ export async function sendManagerReplyAction(
   const tgJson = (await tgRes.json()) as { ok?: boolean; description?: string };
 
   if (!tgRes.ok || !tgJson.ok) {
+    if (messageId) {
+      const errText = tgJson.description ?? `Telegram: ${tgRes.status}`;
+      await supabase
+        .from("messages")
+        .update({ failed_at: new Date().toISOString(), send_error: errText })
+        .eq("id", messageId);
+    }
     return {
       error: tgJson.description ?? `Telegram: ${tgRes.status}`,
     };
   }
 
-  const { error: rpcError } = await supabase.rpc("insert_manager_reply", {
-    p_client_id: clientIdRaw,
-    p_text: replyText,
-  });
-
-  if (rpcError) {
-    return { error: rpcError.message };
+  if (messageId) {
+    await supabase
+      .from("messages")
+      .update({ delivered_at: new Date().toISOString(), failed_at: null, send_error: null })
+      .eq("id", messageId);
   }
 
   revalidatePath("/dashboard");

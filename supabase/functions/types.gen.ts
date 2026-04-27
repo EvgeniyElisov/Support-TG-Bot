@@ -200,24 +200,36 @@ export type Database = {
         Row: {
           client_id: string
           created_at: string
+          delivered_at: string | null
           direction: string
+          failed_at: string | null
           id: string
+          read_at: string | null
+          send_error: string | null
           sent_by_manager_id: string | null
           text_content: string | null
         }
         Insert: {
           client_id: string
           created_at?: string
+          delivered_at?: string | null
           direction?: string
+          failed_at?: string | null
           id?: string
+          read_at?: string | null
+          send_error?: string | null
           sent_by_manager_id?: string | null
           text_content?: string | null
         }
         Update: {
           client_id?: string
           created_at?: string
+          delivered_at?: string | null
           direction?: string
+          failed_at?: string | null
           id?: string
+          read_at?: string | null
+          send_error?: string | null
           sent_by_manager_id?: string | null
           text_content?: string | null
         }

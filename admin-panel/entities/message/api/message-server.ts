@@ -127,7 +127,9 @@ export async function getMessagesByChatId(
 
   const { data: rows, error } = await supabase
     .from("messages")
-    .select("id, created_at, text_content, direction, sent_by_manager_id")
+    .select(
+      "id, created_at, text_content, direction, sent_by_manager_id, delivered_at, read_at, failed_at, send_error",
+    )
     .eq("client_id", client.id)
     .or(
       "direction.eq.outbound,and(direction.eq.inbound,or(text_content.is.null,text_content.not.ilike./start%))",
@@ -188,6 +190,10 @@ export async function getMessagesByChatId(
         created_at: row.created_at,
         text_content: row.text_content,
         direction,
+        delivered_at: row.delivered_at ?? null,
+        read_at: row.read_at ?? null,
+        failed_at: row.failed_at ?? null,
+        send_error: row.send_error ?? null,
         manager_first_name: mgr?.first_name ?? null,
         manager_last_name: mgr?.last_name ?? null,
         manager_company_role: mgr?.company_role ?? null,

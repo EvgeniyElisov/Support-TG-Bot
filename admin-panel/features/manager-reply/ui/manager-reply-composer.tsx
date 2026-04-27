@@ -1,25 +1,78 @@
 "use client";
 
-import { useActionState, useEffect, useState } from "react";
+import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 
+import { createSupabaseBrowserClient } from "@/shared/api/supabase/browser";
 import { sendManagerReplyAction, type SendManagerReplyState } from "../api/send-manager-reply";
 
 type ManagerReplyComposerProps = {
   clientId: string;
+  sessionUserId?: string | null;
+  managerName?: string | null;
 };
 
-export function ManagerReplyComposer({ clientId }: ManagerReplyComposerProps) {
+export function ManagerReplyComposer({
+  clientId,
+  sessionUserId,
+  managerName,
+}: ManagerReplyComposerProps) {
   const [text, setText] = useState("");
   const [state, formAction, isPending] = useActionState<
     SendManagerReplyState,
     FormData
   >(sendManagerReplyAction, null);
 
+  const typingChannel = useMemo(() => `dialog-events:${clientId}`, [clientId]);
+  const channelRef = useRef<ReturnType<ReturnType<typeof createSupabaseBrowserClient>["channel"]> | null>(null);
+  const isSubscribedRef = useRef(false);
+  const isTypingRef = useRef(false);
+  const lastTypingSentAt = useRef(0);
+  const stopTimer = useRef<number | null>(null);
+
   useEffect(() => {
     if (state && "ok" in state && state.ok) {
       setText("");
     }
   }, [state]);
+
+  const sendTyping = (isTyping: boolean) => {
+    if (!sessionUserId) return;
+    const channel = channelRef.current;
+    if (!channel || !isSubscribedRef.current) return;
+
+    void channel.send({
+      type: "broadcast",
+      event: "dialog:typing",
+      payload: {
+        client_id: clientId,
+        user_id: sessionUserId,
+        name: managerName ?? sessionUserId.slice(0, 8),
+        is_typing: isTyping,
+        at: new Date().toISOString(),
+      },
+    });
+  };
+
+  useEffect(() => {
+    const supabase = createSupabaseBrowserClient();
+    const channel = supabase.channel(typingChannel);
+    channelRef.current = channel;
+    isSubscribedRef.current = false;
+
+    void channel.subscribe((status) => {
+      isSubscribedRef.current = status === "SUBSCRIBED";
+    });
+
+    return () => {
+      if (stopTimer.current) window.clearTimeout(stopTimer.current);
+      if (isTypingRef.current) {
+        sendTyping(false);
+      }
+      supabase.removeChannel(channel);
+      channelRef.current = null;
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientId, sessionUserId, managerName]);
 
   return (
     <div className="border-t border-white/10 bg-black/20 px-1 py-4 sm:px-0">
@@ -31,7 +84,32 @@ export function ManagerReplyComposer({ clientId }: ManagerReplyComposerProps) {
         <textarea
           name="reply_text"
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => {
+            setText(e.target.value);
+            if (!sessionUserId) return;
+
+            const now = Date.now();
+            const shouldStart = !isTypingRef.current;
+            const shouldPing = now - lastTypingSentAt.current > 1500;
+
+            if (shouldStart || shouldPing) {
+              isTypingRef.current = true;
+              lastTypingSentAt.current = now;
+              sendTyping(true);
+            }
+
+            if (stopTimer.current) window.clearTimeout(stopTimer.current);
+            stopTimer.current = window.setTimeout(() => {
+              if (!isTypingRef.current) return;
+              isTypingRef.current = false;
+              sendTyping(false);
+            }, 4500);
+          }}
+          onBlur={() => {
+            if (!isTypingRef.current) return;
+            isTypingRef.current = false;
+            sendTyping(false);
+          }}
           rows={3}
           placeholder="Текст уйдёт пользователю с подписью менеджера…"
           disabled={isPending}

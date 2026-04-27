@@ -23,6 +23,13 @@ import { ConversationHeader } from "./conversation-header";
 import { DialogStatusFilterBar } from "./dialog-status-filter";
 import { DIALOGS_PER_PAGE } from "../model/constants";
 
+type DialogClaimPayload = {
+  client_id: string;
+  kind: "opened" | "release";
+  claimed_by: { user_id: string; name: string };
+  at: string;
+};
+
 type LayoutProps = {
   dialogs: MessageDialogRecord[];
   selectedChatId: number;
@@ -54,6 +61,13 @@ export function Layout({
   const [activeDialogState, setActiveDialogState] = useState<MessageDialogRecord>(activeDialog);
   const [messagesState, setMessagesState] = useState<MessageRecord[]>(messages);
   const [hasNewMessages, setHasNewMessages] = useState(false);
+  const [dialogViewers, setDialogViewers] = useState<
+    Array<{ user_id: string; first_name?: string | null; last_name?: string | null; company_role?: string | null }>
+  >([]);
+  const [typingByUserId, setTypingByUserId] = useState<Record<string, { name: string; expires_at: number }>>({});
+  const [claimsByClientId, setClaimsByClientId] = useState<
+    Record<string, { user_id: string; name: string; at: string; expires_at: number } | undefined>
+  >({});
 
   const knownMessageIds = useRef<Set<string>>(new Set(messages.map((m) => m.id)));
 
@@ -84,6 +98,8 @@ export function Layout({
   // Realtime: обновления сайдбара (dialogs) и новые сообщения в активном чате (messages).
   useEffect(() => {
     const supabase = createSupabaseBrowserClient();
+
+    setDialogViewers([]);
 
     const fetchDialogByClientId = async (clientId: string) => {
       const { data, error } = await supabase
@@ -123,6 +139,26 @@ export function Layout({
         const without = prev.filter((d) => d.client_id !== dialog.client_id);
         return [dialog, ...without].slice(0, DIALOGS_PER_PAGE);
       });
+    };
+
+    const mergeDialogInList = (dialog: MessageDialogRecord) => {
+      if (statusFilter !== "all" && dialog.dialog_status !== statusFilter) {
+        setDialogsState((prev) => prev.filter((d) => d.client_id !== dialog.client_id));
+        return;
+      }
+
+      setDialogsState((prev) => {
+        const idx = prev.findIndex((d) => d.client_id === dialog.client_id);
+        if (idx === -1) return [dialog, ...prev].slice(0, DIALOGS_PER_PAGE);
+        const next = [...prev];
+        next[idx] = dialog;
+        return next;
+      });
+    };
+
+    const syncDialogEverywhere = (dialog: MessageDialogRecord) => {
+      mergeDialogInList(dialog);
+      setActiveDialogState((prev) => (prev.client_id === dialog.client_id ? dialog : prev));
     };
 
     const dialogsChannel = supabase
@@ -180,6 +216,40 @@ export function Layout({
       )
       .subscribe();
 
+    const assignmentsChannel = supabase
+      .channel("client-assignments")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "client_assignments" },
+        (payload) => {
+          const row = payload.new as Database["public"]["Tables"]["client_assignments"]["Row"];
+          const clientId = row.client_id;
+
+          void fetchDialogByClientId(clientId).then((dialog) => {
+            if (!dialog) return;
+            syncDialogEverywhere(dialog);
+          });
+        },
+      )
+      .subscribe();
+
+    const dialogStatesChannel = supabase
+      .channel("client-dialog-states")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "client_dialog_states" },
+        (payload) => {
+          const row = payload.new as Database["public"]["Tables"]["client_dialog_states"]["Row"];
+          const clientId = row.client_id;
+
+          void fetchDialogByClientId(clientId).then((dialog) => {
+            if (!dialog) return;
+            syncDialogEverywhere(dialog);
+          });
+        },
+      )
+      .subscribe();
+
     const activeClientId = activeDialog.client_id;
     const messagesChannel = supabase
       .channel(`messages-active-${activeClientId}`)
@@ -209,6 +279,10 @@ export function Layout({
             created_at: row.created_at,
             text_content: row.text_content,
             direction: row.direction === "outbound" ? "outbound" : "inbound",
+            delivered_at: row.delivered_at ?? null,
+            read_at: row.read_at ?? null,
+            failed_at: row.failed_at ?? null,
+            send_error: row.send_error ?? null,
             manager_first_name: mgr?.first_name ?? null,
             manager_last_name: mgr?.last_name ?? null,
             manager_company_role: mgr?.company_role ?? null,
@@ -223,12 +297,278 @@ export function Layout({
       )
       .subscribe();
 
+    const messageUpdatesChannel = supabase
+      .channel(`messages-updates-${activeClientId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "messages",
+          filter: `client_id=eq.${activeClientId}`,
+        },
+        (payload) => {
+          const row = payload.new as Database["public"]["Tables"]["messages"]["Row"];
+          setMessagesState((prev) => {
+            const idx = prev.findIndex((m) => m.id === row.id);
+            if (idx === -1) return prev;
+            const next = [...prev];
+            next[idx] = {
+              ...next[idx],
+              delivered_at: row.delivered_at ?? next[idx].delivered_at,
+              read_at: row.read_at ?? next[idx].read_at,
+              failed_at: row.failed_at ?? next[idx].failed_at,
+              send_error: row.send_error ?? next[idx].send_error,
+            };
+            return next;
+          });
+        },
+      )
+      .subscribe();
+
     return () => {
       supabase.removeChannel(messagesChannel);
+      supabase.removeChannel(messageUpdatesChannel);
+      supabase.removeChannel(dialogStatesChannel);
+      supabase.removeChannel(assignmentsChannel);
       supabase.removeChannel(dialogsChannel);
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeDialog.client_id, currentPage, managerById]);
+
+  // Presence: кто смотрит активный диалог.
+  useEffect(() => {
+    if (!sessionUserId) {
+      setDialogViewers([]);
+      return;
+    }
+
+    const supabase = createSupabaseBrowserClient();
+    const clientId = activeDialog.client_id;
+    const self = managerById.get(sessionUserId);
+
+    const presenceChannel = supabase.channel(`dialog:${clientId}`, {
+      config: { presence: { key: sessionUserId } },
+    });
+
+    const syncFromPresenceState = () => {
+      const state = presenceChannel.presenceState() as Record<string, Array<Record<string, unknown>>>;
+      const list: Array<{
+        user_id: string;
+        first_name?: string | null;
+        last_name?: string | null;
+        company_role?: string | null;
+      }> = [];
+
+      for (const key of Object.keys(state)) {
+        const metas = state[key] ?? [];
+        for (const meta of metas) {
+          const user_id = typeof meta.user_id === "string" ? meta.user_id : key;
+          list.push({
+            user_id,
+            first_name: (meta.first_name as string | null | undefined) ?? null,
+            last_name: (meta.last_name as string | null | undefined) ?? null,
+            company_role: (meta.company_role as string | null | undefined) ?? null,
+          });
+        }
+      }
+
+      const byUser = new Map<string, (typeof list)[number]>();
+      for (const v of list) byUser.set(v.user_id, v);
+      setDialogViewers([...byUser.values()]);
+    };
+
+    presenceChannel
+      .on("presence", { event: "sync" }, syncFromPresenceState)
+      .on("presence", { event: "join" }, syncFromPresenceState)
+      .on("presence", { event: "leave" }, syncFromPresenceState)
+      .subscribe(async (status) => {
+        if (status !== "SUBSCRIBED") return;
+        await presenceChannel.track({
+          user_id: sessionUserId,
+          first_name: self?.first_name ?? null,
+          last_name: self?.last_name ?? null,
+          company_role: self?.company_role ?? null,
+          at: new Date().toISOString(),
+        });
+      });
+
+    return () => {
+      supabase.removeChannel(presenceChannel);
+    };
+  }, [activeDialog.client_id, managerById, sessionUserId]);
+
+  // Broadcast: мягкая блокировка "кто открыл диалог" (эпhemeral, с TTL).
+  useEffect(() => {
+    const supabase = createSupabaseBrowserClient();
+    const TTL_MS = 90_000;
+
+    const prune = () => {
+      const now = Date.now();
+      setClaimsByClientId((prev) => {
+        let changed = false;
+        const next: typeof prev = { ...prev };
+        for (const [clientId, claim] of Object.entries(prev)) {
+          if (!claim) continue;
+          if (claim.expires_at <= now) {
+            delete next[clientId];
+            changed = true;
+          }
+        }
+        return changed ? next : prev;
+      });
+    };
+
+    const interval = window.setInterval(prune, 5_000);
+
+    const channel = supabase
+      .channel("dialogs:dashboard")
+      .on("broadcast", { event: "dialog:claim" }, ({ payload }) => {
+        const p = payload as Partial<DialogClaimPayload> | null;
+        const clientId = typeof p?.client_id === "string" ? p.client_id : null;
+        const kind = p?.kind;
+        const claimedBy = p?.claimed_by;
+        const at = typeof p?.at === "string" ? p.at : new Date().toISOString();
+
+        if (!clientId || !claimedBy || typeof claimedBy.user_id !== "string") return;
+
+        if (kind === "release") {
+          setClaimsByClientId((prev) => {
+            if (!prev[clientId]) return prev;
+            const next = { ...prev };
+            delete next[clientId];
+            return next;
+          });
+          return;
+        }
+
+        if (kind === "opened") {
+          setClaimsByClientId((prev) => ({
+            ...prev,
+            [clientId]: {
+              user_id: claimedBy.user_id,
+              name: typeof claimedBy.name === "string" ? claimedBy.name : claimedBy.user_id.slice(0, 8),
+              at,
+              expires_at: Date.now() + TTL_MS,
+            },
+          }));
+        }
+      })
+      .subscribe();
+
+    return () => {
+      window.clearInterval(interval);
+      supabase.removeChannel(channel);
+    };
+  }, []);
+
+  // Broadcast: отправляем "opened" на активный диалог и "release" при уходе.
+  useEffect(() => {
+    if (!sessionUserId) return;
+
+    const supabase = createSupabaseBrowserClient();
+    const self = managerById.get(sessionUserId);
+    const name =
+      [self?.first_name, self?.last_name].filter(Boolean).join(" ") ||
+      self?.company_role ||
+      sessionUserId.slice(0, 8);
+
+    const channel = supabase.channel("dialogs:dashboard");
+    const clientId = activeDialog.client_id;
+
+    void channel.subscribe(async (status) => {
+      if (status !== "SUBSCRIBED") return;
+      await channel.send({
+        type: "broadcast",
+        event: "dialog:claim",
+        payload: {
+          client_id: clientId,
+          kind: "opened",
+          claimed_by: { user_id: sessionUserId, name },
+          at: new Date().toISOString(),
+        } satisfies DialogClaimPayload,
+      });
+    });
+
+    return () => {
+      void channel.send({
+        type: "broadcast",
+        event: "dialog:claim",
+        payload: {
+          client_id: clientId,
+          kind: "release",
+          claimed_by: { user_id: sessionUserId, name },
+          at: new Date().toISOString(),
+        } satisfies DialogClaimPayload,
+      });
+      supabase.removeChannel(channel);
+    };
+  }, [activeDialog.client_id, managerById, sessionUserId]);
+
+  // Broadcast: typing indicator в активном диалоге (эпhemeral, с TTL).
+  useEffect(() => {
+    const supabase = createSupabaseBrowserClient();
+    const clientId = activeDialog.client_id;
+    const channelName = `dialog-events:${clientId}`;
+    const TTL_MS = 6_000;
+
+    setTypingByUserId({});
+
+    const prune = () => {
+      const now = Date.now();
+      setTypingByUserId((prev) => {
+        let changed = false;
+        const next: typeof prev = { ...prev };
+        for (const [userId, v] of Object.entries(prev)) {
+          if (v.expires_at <= now) {
+            delete next[userId];
+            changed = true;
+          }
+        }
+        return changed ? next : prev;
+      });
+    };
+
+    const interval = window.setInterval(prune, 1_000);
+
+    const channel = supabase
+      .channel(channelName)
+      .on("broadcast", { event: "dialog:typing" }, ({ payload }) => {
+        const p = payload as Partial<{
+          user_id: string;
+          name: string;
+          is_typing: boolean;
+        }> | null;
+        if (!p || typeof p.user_id !== "string") return;
+        if (sessionUserId && p.user_id === sessionUserId) return;
+
+        if (p.is_typing === false) {
+          setTypingByUserId((prev) => {
+            if (!prev[p.user_id!]) return prev;
+            const next = { ...prev };
+            delete next[p.user_id!];
+            return next;
+          });
+          return;
+        }
+
+        if (p.is_typing === true) {
+          setTypingByUserId((prev) => ({
+            ...prev,
+            [p.user_id!]: {
+              name: typeof p.name === "string" && p.name.length > 0 ? p.name : p.user_id!.slice(0, 8),
+              expires_at: Date.now() + TTL_MS,
+            },
+          }));
+        }
+      })
+      .subscribe();
+
+    return () => {
+      window.clearInterval(interval);
+      supabase.removeChannel(channel);
+    };
+  }, [activeDialog.client_id, sessionUserId]);
 
   return (
     <section className="grid min-h-0 flex-1 grid-cols-1 gap-4 lg:grid-cols-[minmax(280px,380px)_1fr] lg:gap-6 lg:items-stretch">
@@ -247,12 +587,40 @@ export function Layout({
             managers={managers}
             sessionUserId={sessionUserId}
             statusFilter={statusFilter}
+            claimsByClientId={Object.fromEntries(
+              Object.entries(claimsByClientId).map(([k, v]) => [
+                k,
+                v
+                  ? { user_id: v.user_id, name: v.name, kind: "opened" as const, at: v.at }
+                  : undefined,
+              ]),
+            )}
           />
         </div>
       </aside>
 
       <div className="flex min-h-[320px] flex-col overflow-hidden rounded-2xl border border-white/10 bg-white/4 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)] backdrop-blur-md lg:min-h-[min(720px,calc(100dvh-12rem))]">
-        <ConversationHeader dialog={activeDialogState} />
+        <ConversationHeader
+          dialog={activeDialogState}
+          viewers={dialogViewers}
+          sessionUserId={sessionUserId}
+          claimedBy={
+            claimsByClientId[activeDialogState.client_id]
+              ? {
+                  user_id: claimsByClientId[activeDialogState.client_id]!.user_id,
+                  name: claimsByClientId[activeDialogState.client_id]!.name,
+                }
+              : null
+          }
+          typingLabel={
+            Object.keys(typingByUserId).length > 0
+              ? Object.values(typingByUserId)
+                  .slice(0, 2)
+                  .map((v) => v.name)
+                  .join(", ")
+              : null
+          }
+        />
         <div className="flex min-h-0 min-w-0 flex-1 flex-col">
           <div className="min-h-0 flex-1 overflow-y-auto px-3 py-4 sm:px-5">
             {hasNewMessages ? (
@@ -279,7 +647,17 @@ export function Layout({
           </div>
           {canReply ? (
             <div className="shrink-0 px-3 sm:px-5">
-              <ManagerReplyComposer clientId={activeDialogState.client_id} />
+              <ManagerReplyComposer
+                clientId={activeDialogState.client_id}
+                sessionUserId={sessionUserId}
+                managerName={
+                  sessionUserId
+                    ? ([managerById.get(sessionUserId)?.first_name, managerById.get(sessionUserId)?.last_name]
+                        .filter(Boolean)
+                        .join(" ") || sessionUserId.slice(0, 8))
+                    : null
+                }
+              />
             </div>
           ) : (
             <div className="shrink-0 border-t border-white/10 px-3 py-3 text-xs leading-relaxed text-zinc-500 sm:px-5">

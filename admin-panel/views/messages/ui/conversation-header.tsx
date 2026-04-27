@@ -2,13 +2,38 @@ import { getAvatarInitial, getDisplayName } from "@/entities/message/lib";
 import type { MessageDialogRecord } from "@/entities/message/model/types";
 import { DialogStatusBadge, DialogStatusSelect } from "@/features/dialog-status";
 
-type ConversationHeaderProps = {
-  dialog: MessageDialogRecord;
+type DialogViewer = {
+  user_id: string;
+  first_name?: string | null;
+  last_name?: string | null;
+  company_role?: string | null;
 };
 
-export function ConversationHeader({ dialog }: ConversationHeaderProps) {
+type ConversationHeaderProps = {
+  dialog: MessageDialogRecord;
+  viewers?: DialogViewer[];
+  sessionUserId?: string | null;
+  claimedBy?: { user_id: string; name: string } | null;
+  typingLabel?: string | null;
+};
+
+export function ConversationHeader({
+  dialog,
+  viewers,
+  sessionUserId,
+  claimedBy,
+  typingLabel,
+}: ConversationHeaderProps) {
   const title = getDisplayName(dialog);
   const initial = getAvatarInitial(dialog);
+  const otherViewers = (viewers ?? []).filter((v) => (sessionUserId ? v.user_id !== sessionUserId : true));
+
+  const viewersLabel =
+    otherViewers.length > 0
+      ? otherViewers
+          .map((v) => [v.first_name, v.last_name].filter(Boolean).join(" ") || v.user_id.slice(0, 8))
+          .join(", ")
+      : null;
 
   return (
     <header className="shrink-0 border-b border-white/10 bg-black/15 px-5 py-4 sm:px-6">
@@ -36,6 +61,30 @@ export function ConversationHeader({ dialog }: ConversationHeaderProps) {
               </span>
               <span className="text-zinc-600">·</span>
               <span>{dialog.messages_count} сообщений</span>
+              {claimedBy && sessionUserId && claimedBy.user_id !== sessionUserId ? (
+                <>
+                  <span className="text-zinc-600">·</span>
+                  <span className="rounded-lg border border-[#2dd4bf]/20 bg-[#2dd4bf]/10 px-2 py-0.5 text-[#7ee7d7]">
+                    Открыт у {claimedBy.name}
+                  </span>
+                </>
+              ) : null}
+              {viewersLabel ? (
+                <>
+                  <span className="text-zinc-600">·</span>
+                  <span className="text-zinc-500">
+                    Смотрят: <span className="text-zinc-300">{viewersLabel}</span>
+                  </span>
+                </>
+              ) : null}
+              {typingLabel ? (
+                <>
+                  <span className="text-zinc-600">·</span>
+                  <span className="text-zinc-500">
+                    <span className="text-zinc-300">{typingLabel}</span> печатает…
+                  </span>
+                </>
+              ) : null}
             </div>
           </div>
         </div>
