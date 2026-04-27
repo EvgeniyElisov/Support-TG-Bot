@@ -76,9 +76,6 @@ export function MessageCard({ message }: MessageCardProps) {
         <p className="whitespace-pre-wrap wrap-break-word text-sm leading-relaxed text-zinc-300">
           {getDisplayText(message)}
         </p>
-        {!isOutbound ? (
-          <p className="mt-3 text-[10px] font-mono text-zinc-600">chat_id {message.chat_id}</p>
-        ) : null}
       </div>
     </li>
   );

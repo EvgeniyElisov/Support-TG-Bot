@@ -35,6 +35,10 @@ export function ConversationHeader({
           .join(", ")
       : null;
 
+  const hasSignals = Boolean(
+    (claimedBy && sessionUserId && claimedBy.user_id !== sessionUserId) || viewersLabel || typingLabel,
+  );
+
   return (
     <header className="shrink-0 border-b border-white/10 bg-black/15 px-5 py-4 sm:px-6">
       <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
@@ -61,31 +65,27 @@ export function ConversationHeader({
               </span>
               <span className="text-zinc-600">·</span>
               <span>{dialog.messages_count} сообщений</span>
-              {claimedBy && sessionUserId && claimedBy.user_id !== sessionUserId ? (
-                <>
-                  <span className="text-zinc-600">·</span>
-                  <span className="rounded-lg border border-[#2dd4bf]/20 bg-[#2dd4bf]/10 px-2 py-0.5 text-[#7ee7d7]">
+            </div>
+
+            {hasSignals ? (
+              <div className="mt-3 flex flex-wrap items-center gap-2">
+                {claimedBy && sessionUserId && claimedBy.user_id !== sessionUserId ? (
+                  <span className="rounded-2xl border border-[#2dd4bf]/35 bg-[#2dd4bf]/12 px-3 py-1.5 text-[13px] font-extrabold text-[#9af3e7] shadow-[0_0_22px_-14px_rgba(45,212,191,0.9)]">
                     Открыт у {claimedBy.name}
                   </span>
-                </>
-              ) : null}
-              {viewersLabel ? (
-                <>
-                  <span className="text-zinc-600">·</span>
-                  <span className="text-zinc-500">
-                    Смотрят: <span className="text-zinc-300">{viewersLabel}</span>
+                ) : null}
+                {viewersLabel ? (
+                  <span className="rounded-2xl border border-white/12 bg-white/7 px-3 py-1.5 text-[13px] font-semibold text-zinc-200 shadow-[0_0_20px_-16px_rgba(255,255,255,0.35)]">
+                    Смотрят: <span className="font-bold text-zinc-100">{viewersLabel}</span>
                   </span>
-                </>
-              ) : null}
-              {typingLabel ? (
-                <>
-                  <span className="text-zinc-600">·</span>
-                  <span className="text-zinc-500">
-                    <span className="text-zinc-300">{typingLabel}</span> печатает…
+                ) : null}
+                {typingLabel ? (
+                  <span className="rounded-2xl border border-[#c8ff3d]/35 bg-[#c8ff3d]/12 px-3 py-1.5 text-[13px] font-extrabold text-[#e8ffc4] shadow-[0_0_22px_-14px_rgba(200,255,61,0.9)]">
+                    {typingLabel} печатает…
                   </span>
-                </>
-              ) : null}
-            </div>
+                ) : null}
+              </div>
+            ) : null}
           </div>
         </div>
         <div className="flex shrink-0 flex-col items-stretch gap-2 sm:items-end">
