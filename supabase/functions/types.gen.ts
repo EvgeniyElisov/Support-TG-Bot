@@ -272,6 +272,7 @@ export type Database = {
           dialog_status: string | null
           first_name: string | null
           last_message_at: string | null
+          last_message_text: string | null
           last_name: string | null
           messages_count: number | null
           username: string | null

@@ -26,6 +26,7 @@ export type MessageDialogRecord = {
   last_name: string | null;
   dialog_status: DialogStatus;
   last_message_at: string;
+  last_message_text: string | null;
   messages_count: number;
   current_manager_id: string | null;
   assigned_by_manager_id: string | null;

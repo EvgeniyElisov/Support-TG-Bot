@@ -144,6 +144,7 @@ export function Layout({
             "last_name",
             "dialog_status",
             "last_message_at",
+            "last_message_text",
             "messages_count",
             "current_manager_id",
             "assigned_by_manager_id",
@@ -201,6 +202,7 @@ export function Layout({
           const row = payload.new as Database["public"]["Tables"]["dialogs"]["Row"];
           const clientId = row.client_id;
           const lastMessageAt = row.last_message_at;
+          const lastMessageText = row.last_message_text;
           const messagesCount = row.messages_count;
 
           setDialogsState((prev) => {
@@ -216,6 +218,7 @@ export function Layout({
             const updated: MessageDialogRecord = {
               ...next[idx],
               last_message_at: lastMessageAt ?? next[idx].last_message_at,
+              last_message_text: lastMessageText ?? next[idx].last_message_text,
               messages_count: messagesCount,
             };
             next.splice(idx, 1);
@@ -227,6 +230,7 @@ export function Layout({
             return {
               ...prev,
               last_message_at: lastMessageAt ?? prev.last_message_at,
+              last_message_text: lastMessageText ?? prev.last_message_text,
               messages_count: messagesCount,
             };
           });

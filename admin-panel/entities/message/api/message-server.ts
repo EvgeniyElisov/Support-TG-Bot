@@ -24,6 +24,7 @@ const DIALOG_SELECT_FIELDS = [
   "last_name",
   "dialog_status",
   "last_message_at",
+  "last_message_text",
   "messages_count",
   "current_manager_id",
   "assigned_by_manager_id",

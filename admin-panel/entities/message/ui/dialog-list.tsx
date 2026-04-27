@@ -57,6 +57,8 @@ export function DialogList({
           assignee: assigneeFilter,
         });
 
+        const preview = (dialog.last_message_text ?? "").trim();
+
         return (
           <li key={dialog.chat_id}>
             <div
@@ -101,8 +103,11 @@ export function DialogList({
                         </span>
                       </div>
                     </div>
-                    <p className={`mt-1 truncate text-[11px] ${isActive ? "text-zinc-400" : "text-zinc-600"}`}>
-                      id {dialog.chat_id} · {formatMessageDate(dialog.last_message_at)}
+                    <p className={`mt-1 truncate text-[12px] ${isActive ? "text-zinc-300" : "text-zinc-400"}`}>
+                      {preview.length > 0 ? preview : "—"}
+                    </p>
+                    <p className={`mt-1 truncate text-[11px] ${isActive ? "text-zinc-500" : "text-zinc-600"}`}>
+                      {formatMessageDate(dialog.last_message_at)}
                     </p>
                   </div>
                 </div>
