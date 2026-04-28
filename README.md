@@ -47,7 +47,7 @@ supabase/
 | `EMBEDDINGS_API_KEY` **или** `OPENAI_API_KEY` | tg-webhook | векторы для поиска (embeddings) |
 
 Опционально:
-`EMBEDDINGS_BASE_URL`, `EMBEDDINGS_MODEL`, `EMBEDDINGS_PROVIDER`, `RAG_TOP_K`, `DEEPSEEK_MODEL`.
+`EMBEDDINGS_BASE_URL`, `EMBEDDINGS_MODEL`, `EMBEDDINGS_PROVIDER`, `RAG_TOP_K`, `RAG_MIN_SIMILARITY`, `DEEPSEEK_MODEL`.
 
 Также опционально (для OpenRouter):
 `OPENROUTER_HTTP_REFERER`, `OPENROUTER_X_TITLE`.
@@ -108,6 +108,12 @@ tg-webhook делает:
 1) embeddings вопроса
 2) `match_kb_chunks` → top‑K контекст
 3) запрос в DeepSeek → ответ пользователю
+
+Поведение:
+- Если запрос слишком общий или поиск “неуверенный” (низкая similarity / нет чанков) — бот задаёт 1–2 уточняющих вопроса.
+- Если диалог назначен менеджеру (`client_assignments.current_manager_id` задан) — бот **не отвечает автоматически**, чтобы не мешать менеджеру.
+- Ответы бота сохраняются в `messages` как `outbound` (без `sent_by_manager_id`), чтобы их было видно в админке.
+- `read_at` для исходящих сообщений проставляется best‑effort: когда клиент присылает следующее входящее сообщение.
 
 Если embeddings не настроены или chunks пустые — бот ответит, что сейчас не может ответить по базе знаний.
 
