@@ -42,6 +42,24 @@ export function createWebhookHandler(token: string) {
       ("text" in ctx.msg && ctx.msg.text) || ("caption" in ctx.msg && ctx.msg.caption) || null
     if (!text) return
 
+    // If the dialog is assigned to a manager, do not auto-reply as a bot.
+    if (clientId) {
+      const db = getSupabaseAdmin()
+      if (db) {
+        const { data: assignment, error: assignError } = await db
+          .from("client_assignments")
+          .select("current_manager_id")
+          .eq("client_id", clientId)
+          .maybeSingle()
+
+        if (assignError) {
+          console.error("[client_assignments] Ошибка чтения:", assignError.message)
+        } else if (assignment?.current_manager_id) {
+          return
+        }
+      }
+    }
+
     try {
       const { answer } = await generateRagAnswer(text)
       await ctx.reply(answer)
