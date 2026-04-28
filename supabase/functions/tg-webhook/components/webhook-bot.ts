@@ -2,6 +2,7 @@ import { Bot, type Context, webhookCallback } from "grammy"
 import { getIncomingPreview } from "./incoming-preview.ts"
 import { persistIncomingMessage } from "./persist-message.ts"
 import { generateRagAnswer, RagNotReadyError } from "./rag.ts"
+import { getSupabaseAdmin } from "./supabase-admin.ts"
 
 /** Сборка Bot, обработчики message / edited_message, HTTP-адаптер std/http для вебхука. */
 export function createWebhookHandler(token: string) {
@@ -33,7 +34,7 @@ export function createWebhookHandler(token: string) {
       return
     }
 
-    await persistIncomingMessage(ctx.msg)
+    const clientId = await persistIncomingMessage(ctx.msg)
 
     // RAG-ответ только на новые сообщения (не на edits) и только когда есть текст.
     if (ctx.update.edited_message) return
@@ -44,6 +45,22 @@ export function createWebhookHandler(token: string) {
     try {
       const { answer } = await generateRagAnswer(text)
       await ctx.reply(answer)
+
+      // Persist bot reply to the same dialog so managers can see what was sent.
+      if (clientId) {
+        const db = getSupabaseAdmin()
+        const nowIso = new Date().toISOString()
+        if (db) {
+          const { error } = await db.from("messages").insert({
+            client_id: clientId,
+            text_content: answer,
+            direction: "outbound",
+            delivered_at: nowIso,
+            sent_by_manager_id: null,
+          })
+          if (error) console.error("[messages] Ошибка сохранения bot-reply:", error.message)
+        }
+      }
     } catch (e) {
       console.error("[rag]", e)
       if (e instanceof RagNotReadyError) {

@@ -2,11 +2,11 @@ import type { Message } from "grammy/types"
 import { getSupabaseAdmin } from "./supabase-admin.ts"
 
 /** Сохранение клиента и строки сообщения (только text_content в БД). */
-export async function persistIncomingMessage(msg: Message): Promise<void> {
+export async function persistIncomingMessage(msg: Message): Promise<string | null> {
   const db = getSupabaseAdmin()
   if (!db) {
     console.warn("Supabase не настроен: нет SUPABASE_URL или SUPABASE_SERVICE_ROLE_KEY")
-    return
+    return null
   }
 
   const from = msg.from
@@ -28,7 +28,7 @@ export async function persistIncomingMessage(msg: Message): Promise<void> {
 
   if (existingError) {
     console.error("[clients] Ошибка чтения:", existingError.message)
-    return
+    return null
   }
 
   let clientRow: { id: string }
@@ -41,7 +41,7 @@ export async function persistIncomingMessage(msg: Message): Promise<void> {
 
     if (updError) {
       console.error("[clients] Ошибка update:", updError.message)
-      return
+      return null
     }
     clientRow = { id: existing.id }
   } else {
@@ -56,7 +56,7 @@ export async function persistIncomingMessage(msg: Message): Promise<void> {
 
     if (insError || !inserted) {
       console.error("[clients] Ошибка insert:", insError?.message)
-      return
+      return null
     }
     clientRow = inserted
   }
@@ -76,5 +76,23 @@ export async function persistIncomingMessage(msg: Message): Promise<void> {
 
   if (error) {
     console.error("[messages] Ошибка сохранения в БД:", error.message)
+    return null
   }
+
+  // Telegram Bot API doesn't provide read receipts. As a best-effort proxy,
+  // consider outbound messages "read" once the client sends the next inbound message.
+  const { error: readError } = await db
+    .from("messages")
+    .update({ read_at: nowIso })
+    .eq("client_id", clientRow.id)
+    .eq("direction", "outbound")
+    .is("read_at", null)
+    .is("failed_at", null)
+    .lt("created_at", nowIso)
+
+  if (readError) {
+    console.error("[messages] Ошибка обновления read_at:", readError.message)
+  }
+
+  return clientRow.id
 }

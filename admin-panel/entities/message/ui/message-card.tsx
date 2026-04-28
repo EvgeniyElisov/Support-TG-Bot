@@ -13,7 +13,7 @@ function formatSenderLabel(message: MessageRecord): string {
   if (message.direction === "outbound") {
     const n = [message.manager_first_name, message.manager_last_name].filter(Boolean).join(" ");
     const role = message.manager_company_role ? ` · ${message.manager_company_role}` : "";
-    return n ? `Ответ поддержки: ${n}${role}` : "Ответ поддержки";
+    return n ? `Ответ поддержки: ${n}${role}` : "Ответ бота";
   }
   return getDisplayName(message);
 }
