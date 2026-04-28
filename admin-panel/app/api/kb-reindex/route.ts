@@ -137,7 +137,7 @@ export async function POST(request: Request) {
       : await docsQuery;
 
     if (docsError) return new NextResponse(docsError.message, { status: 400 });
-    const docs = (docsRaw ?? []) as KbDocumentRow[];
+    const docs = (docsRaw ?? []) as unknown as KbDocumentRow[];
 
     let totalChunks = 0;
     const provider = (process.env.EMBEDDINGS_PROVIDER ?? "openai").toLowerCase();

@@ -29,6 +29,6 @@ export async function KnowledgeBasePage() {
     );
   }
 
-  return <KnowledgeBaseView initialDocuments={(data ?? []) as KnowledgeBaseDocument[]} />;
+  return <KnowledgeBaseView initialDocuments={(data ?? []) as unknown as KnowledgeBaseDocument[]} />;
 }
 
