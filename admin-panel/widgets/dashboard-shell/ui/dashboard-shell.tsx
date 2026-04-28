@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { LogoutButton } from "@/features/auth";
+import { DashboardNav } from "./dashboard-nav";
 
 type DashboardShellProps = {
   userEmail: string | null;
@@ -26,14 +27,7 @@ export function DashboardShell({ userEmail, children }: DashboardShellProps) {
           </div>
         </Link>
 
-        <nav className="flex flex-col gap-1" aria-label="Разделы">
-          <Link
-            href="/dashboard"
-            className="rounded-xl border border-[#c8ff3d]/25 bg-[#c8ff3d]/8 px-3 py-2.5 text-sm font-semibold text-[#e8ffc4] shadow-[inset_0_1px_0_0_rgba(255,255,255,0.06)]"
-          >
-            Входящие
-          </Link>
-        </nav>
+        <DashboardNav />
 
         <div className="mt-auto space-y-4 border-t border-white/10 pt-6">
           {userEmail ? (
