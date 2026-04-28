@@ -58,11 +58,7 @@ function buildClarifyingReply(question: string): string {
 
   const unique = Array.from(new Set(questions)).slice(0, 2)
 
-  return [
-    "Похоже, вопрос пока слишком общий — уточните пару деталей, и я отвечу точнее.",
-    "",
-    ...unique.map((s) => `- ${s}`),
-  ].join("\n")
+  return ["Уточните, пожалуйста:", ...unique.map((s) => `- ${s}`)].join("\n")
 }
 
 function requireEnv(name: string): string {
