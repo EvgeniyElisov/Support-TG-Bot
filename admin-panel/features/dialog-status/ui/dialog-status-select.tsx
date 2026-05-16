@@ -7,6 +7,8 @@ import {
   DIALOG_STATUS_LABELS,
   type DialogStatus,
 } from "@/entities/message/model/dialog-status";
+import { Spinner } from "@/shared/ui";
+
 import {
   setClientDialogStatusAction,
   type SetDialogStatusState,
@@ -19,7 +21,7 @@ type DialogStatusSelectProps = {
 };
 
 export function DialogStatusSelect({ clientId, value, size = "md" }: DialogStatusSelectProps) {
-  const [state, formAction] = useActionState<SetDialogStatusState, FormData>(
+  const [state, formAction, isPending] = useActionState<SetDialogStatusState, FormData>(
     setClientDialogStatusAction,
     null,
   );
@@ -39,7 +41,9 @@ export function DialogStatusSelect({ clientId, value, size = "md" }: DialogStatu
         onChange={(e) => {
           e.currentTarget.form?.requestSubmit();
         }}
-        className={selectClass}
+        disabled={isPending}
+        aria-busy={isPending}
+        className={`${selectClass} disabled:cursor-wait disabled:opacity-60`}
         aria-label="Статус диалога"
       >
         {DIALOG_STATUSES.map((s) => (
@@ -48,6 +52,12 @@ export function DialogStatusSelect({ clientId, value, size = "md" }: DialogStatu
           </option>
         ))}
       </select>
+      {isPending ? (
+        <span className="flex items-center gap-1.5 text-[10px] text-zinc-500">
+          <Spinner className="h-3 w-3" />
+          Сохранение…
+        </span>
+      ) : null}
       {state?.error ? <span className="text-[11px] text-rose-400">{state.error}</span> : null}
     </form>
   );

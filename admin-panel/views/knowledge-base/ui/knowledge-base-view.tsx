@@ -3,7 +3,10 @@
 import { useMemo, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 
+import { ButtonLoadingLabel, LoadingBanner } from "@/shared/ui";
+
 import type { KnowledgeBaseDocument } from "./knowledge-base-page";
+import { ReindexDialog, type ReindexDialogState } from "./reindex-dialog";
 
 type EditorState =
   | { mode: "create" }
@@ -32,6 +35,9 @@ function formatDate(iso: string): string {
 export function KnowledgeBaseView({ initialDocuments }: { initialDocuments: KnowledgeBaseDocument[] }) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
+  const [isReindexing, setIsReindexing] = useState(false);
+  const [reindexDialog, setReindexDialog] = useState<ReindexDialogState | null>(null);
+  const [deletingDocId, setDeletingDocId] = useState<string | null>(null);
 
   const [query, setQuery] = useState("");
   const [editor, setEditor] = useState<EditorState | null>(null);
@@ -109,51 +115,89 @@ export function KnowledgeBaseView({ initialDocuments }: { initialDocuments: Know
 
   const remove = async (doc: KnowledgeBaseDocument) => {
     const ok = confirm(`Удалить документ "${doc.title}"?`);
-    if (!ok) return;
+    if (!ok || isBusy) return;
 
-    startTransition(() => {
-      void (async () => {
-        const res = await fetch(`/api/kb-documents/${doc.id}`, { method: "DELETE" });
-        if (!res.ok) {
-          const text = await res.text().catch(() => "");
-          alert(`Не удалось удалить: ${text || res.statusText}`);
-          return;
-        }
-        router.refresh();
-      })();
-    });
+    setDeletingDocId(doc.id);
+    try {
+      const res = await fetch(`/api/kb-documents/${doc.id}`, { method: "DELETE" });
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        alert(`Не удалось удалить: ${text || res.statusText}`);
+        return;
+      }
+      router.refresh();
+    } finally {
+      setDeletingDocId(null);
+    }
   };
 
-  const reindexAll = async () => {
-    const ok = confirm("Переиндексировать все опубликованные документы? Это пересчитает chunks и векторы.");
-    if (!ok) return;
+  const publishedCount = useMemo(
+    () => initialDocuments.filter((d) => d.is_published).length,
+    [initialDocuments],
+  );
 
-    startTransition(() => {
-      void (async () => {
-        const res = await fetch("/api/kb-reindex", {
-          method: "POST",
-          headers: { "content-type": "application/json" },
-          body: JSON.stringify({}),
+  const openReindexConfirm = () => {
+    if (isReindexing) return;
+    setReindexDialog({ type: "confirm" });
+  };
+
+  const runReindex = async () => {
+    if (isReindexing) return;
+
+    setReindexDialog(null);
+    setIsReindexing(true);
+    try {
+      const res = await fetch("/api/kb-reindex", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({}),
+      });
+
+      if (!res.ok) {
+        const text = await res.text().catch(() => "");
+        setReindexDialog({
+          type: "error",
+          message: text || res.statusText || "Неизвестная ошибка",
         });
+        return;
+      }
 
-        if (!res.ok) {
-          const text = await res.text().catch(() => "");
-          alert(`Переиндексация не удалась: ${text || res.statusText}`);
-          return;
-        }
+      const json = (await res.json().catch(() => null)) as
+        | { documents?: number; chunks?: number; embeddings_provider?: string }
+        | null;
 
-        const json = (await res.json().catch(() => null)) as
-          | { documents?: number; chunks?: number; embeddings_provider?: string }
-          | null;
-        alert(
-          `Готово. Документов: ${json?.documents ?? "?"}, chunks: ${json?.chunks ?? "?"}, embeddings: ${
-            json?.embeddings_provider ?? "?"
-          }.`,
-        );
-        router.refresh();
-      })();
-    });
+      setReindexDialog({
+        type: "success",
+        documents: json?.documents ?? 0,
+        chunks: json?.chunks ?? 0,
+        embeddingsProvider: json?.embeddings_provider,
+      });
+      router.refresh();
+    } finally {
+      setIsReindexing(false);
+    }
   };
+
+  const isBusy = isPending || isReindexing || deletingDocId !== null;
+  const isSaving = isPending && editor !== null;
+
+  const loadingBanner = isReindexing
+    ? {
+        title: "Идёт переиндексация базы знаний",
+        description:
+          "Нарезаем документы на фрагменты и пересчитываем embeddings. Не закрывайте страницу — это может занять до минуты.",
+      }
+    : isSaving
+      ? {
+          title: "Сохраняем документ",
+          description: "Подождите, пока изменения запишутся в базу знаний.",
+        }
+      : deletingDocId
+        ? {
+            title: "Удаляем документ",
+            description: "Подождите, пока операция завершится.",
+          }
+        : null;
 
   return (
     <div className="px-4 py-6 sm:px-6 lg:px-10 lg:py-10">
@@ -174,28 +218,40 @@ export function KnowledgeBaseView({ initialDocuments }: { initialDocuments: Know
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Поиск по заголовку, тексту или тегам"
-            className="w-full sm:w-[420px] rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none focus:border-white/20"
+            className="w-full sm:w-[420px] rounded-xl border border-white/10 bg-black/30 px-3 py-2.5 text-sm text-zinc-100 placeholder:text-zinc-600 outline-none focus:border-white/20 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={isBusy}
           />
           <button
             type="button"
-            onClick={reindexAll}
-            className="rounded-xl border border-white/10 bg-white/4 px-4 py-2.5 text-sm font-bold text-zinc-200 hover:border-white/15 hover:bg-white/6 disabled:opacity-50"
-            disabled={isPending}
+            onClick={openReindexConfirm}
+            className="rounded-xl border border-white/10 bg-white/4 px-4 py-2.5 text-sm font-bold text-zinc-200 hover:border-white/15 hover:bg-white/6 disabled:cursor-not-allowed disabled:opacity-60"
+            disabled={isBusy}
+            aria-busy={isReindexing}
           >
-            Переиндексировать
+            <ButtonLoadingLabel isLoading={isReindexing} loadingText="Переиндексация…">
+              Переиндексировать
+            </ButtonLoadingLabel>
           </button>
           <button
             type="button"
             onClick={openCreate}
-            className="rounded-xl bg-[#c8ff3d] px-4 py-2.5 text-sm font-bold text-black hover:bg-[#d8ff6a] disabled:opacity-50"
-            disabled={isPending}
+            className="rounded-xl bg-[#c8ff3d] px-4 py-2.5 text-sm font-bold text-black hover:bg-[#d8ff6a] disabled:cursor-not-allowed disabled:opacity-50"
+            disabled={isBusy}
           >
             Добавить
           </button>
         </div>
       </div>
 
-      <div className="rounded-2xl border border-white/10 bg-white/4 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)] backdrop-blur-md">
+      {loadingBanner ? (
+        <LoadingBanner title={loadingBanner.title} description={loadingBanner.description} />
+      ) : null}
+
+      <div
+        className={`rounded-2xl border border-white/10 bg-white/4 shadow-[inset_0_1px_0_0_rgba(255,255,255,0.04)] backdrop-blur-md ${
+          isBusy ? "pointer-events-none opacity-60" : ""
+        }`}
+      >
         <div className="flex items-center justify-between border-b border-white/10 px-4 py-3.5">
           <p className="text-sm font-semibold text-zinc-200">Документы</p>
           <p className="text-xs text-zinc-600">Всего: {initialDocuments.length}</p>
@@ -246,17 +302,22 @@ export function KnowledgeBaseView({ initialDocuments }: { initialDocuments: Know
                       type="button"
                       onClick={() => openEdit(doc)}
                       className="rounded-lg border border-white/10 bg-white/4 px-3 py-1.5 text-xs font-bold text-zinc-200 hover:border-white/15 hover:bg-white/6 disabled:opacity-50"
-                      disabled={isPending}
+                      disabled={isBusy}
                     >
                       Редактировать
                     </button>
                     <button
                       type="button"
                       onClick={() => remove(doc)}
-                      className="rounded-lg border border-red-500/20 bg-red-500/6 px-3 py-1.5 text-xs font-bold text-red-200 hover:border-red-500/30 hover:bg-red-500/10 disabled:opacity-50"
-                      disabled={isPending}
+                      className="rounded-lg border border-red-500/20 bg-red-500/6 px-3 py-1.5 text-xs font-bold text-red-200 hover:border-red-500/30 hover:bg-red-500/10 disabled:cursor-not-allowed disabled:opacity-50"
+                      disabled={isBusy}
                     >
-                      Удалить
+                      <ButtonLoadingLabel
+                        isLoading={deletingDocId === doc.id}
+                        loadingText="Удаление…"
+                      >
+                        Удалить
+                      </ButtonLoadingLabel>
                     </button>
                   </div>
                 </div>
@@ -277,13 +338,22 @@ export function KnowledgeBaseView({ initialDocuments }: { initialDocuments: Know
                 type="button"
                 onClick={closeEditor}
                 className="rounded-lg border border-white/10 bg-white/4 px-3 py-1.5 text-xs font-bold text-zinc-200 hover:border-white/15 hover:bg-white/6 disabled:opacity-50"
-                disabled={isPending}
+                disabled={isBusy}
               >
                 Закрыть
               </button>
             </div>
 
-            <div className="space-y-4 px-4 py-4">
+            {isSaving ? (
+              <div className="border-b border-white/10 px-4 py-3">
+                <LoadingBanner
+                  title="Сохраняем документ"
+                  description="Подождите, пока изменения запишутся в базу знаний."
+                />
+              </div>
+            ) : null}
+
+            <div className={`space-y-4 px-4 py-4 ${isSaving ? "pointer-events-none opacity-60" : ""}`}>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div className="space-y-1.5">
                   <label className="text-[10px] font-bold uppercase tracking-[0.28em] text-zinc-600">
@@ -339,7 +409,7 @@ export function KnowledgeBaseView({ initialDocuments }: { initialDocuments: Know
                 type="button"
                 onClick={closeEditor}
                 className="rounded-xl border border-white/10 bg-white/4 px-4 py-2.5 text-sm font-bold text-zinc-200 hover:border-white/15 hover:bg-white/6 disabled:opacity-50"
-                disabled={isPending}
+                disabled={isBusy}
               >
                 Отмена
               </button>
@@ -347,14 +417,24 @@ export function KnowledgeBaseView({ initialDocuments }: { initialDocuments: Know
                 type="button"
                 onClick={submit}
                 className="rounded-xl bg-[#c8ff3d] px-4 py-2.5 text-sm font-bold text-black hover:bg-[#d8ff6a] disabled:opacity-50"
-                disabled={isPending}
+                disabled={isBusy}
+                aria-busy={isSaving}
               >
-                Сохранить
+                <ButtonLoadingLabel isLoading={isSaving} loadingText="Сохранение…">
+                  Сохранить
+                </ButtonLoadingLabel>
               </button>
             </div>
           </div>
         </div>
       ) : null}
+
+      <ReindexDialog
+        state={reindexDialog}
+        publishedCount={publishedCount}
+        onClose={() => setReindexDialog(null)}
+        onConfirm={() => void runReindex()}
+      />
     </div>
   );
 }

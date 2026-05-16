@@ -3,6 +3,8 @@
 import { useActionState, useEffect, useState } from "react";
 import toast from "react-hot-toast";
 
+import { ButtonLoadingLabel } from "@/shared/ui";
+
 import { loginAction, type LoginActionState } from "../api/login";
 
 import { ForgotPasswordForm } from "./forgot-password-form";
@@ -79,9 +81,12 @@ export function LoginForm() {
       <button
         className="font-heading mt-1 w-full rounded-xl bg-[#c8ff3d] px-4 py-3.5 text-sm font-bold tracking-wide text-black shadow-[0_0_40px_-8px_rgba(200,255,61,0.45)] transition hover:-translate-y-0.5 hover:bg-[#d8ff6a] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#c8ff3d]/80 active:translate-y-0 disabled:pointer-events-none disabled:opacity-60"
         disabled={isPending}
+        aria-busy={isPending}
         type="submit"
       >
-        {isPending ? "Вход…" : "Войти"}
+        <ButtonLoadingLabel isLoading={isPending} loadingText="Вход…">
+          Войти
+        </ButtonLoadingLabel>
       </button>
     </form>
   );

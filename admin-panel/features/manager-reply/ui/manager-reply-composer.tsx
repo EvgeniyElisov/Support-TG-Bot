@@ -3,6 +3,7 @@
 import { useActionState, useEffect, useMemo, useRef, useState } from "react";
 
 import { createSupabaseBrowserClient } from "@/shared/api/supabase/browser";
+import { ButtonLoadingLabel } from "@/shared/ui";
 import { sendManagerReplyAction, type SendManagerReplyState } from "../api/send-manager-reply";
 
 type ManagerReplyComposerProps = {
@@ -118,9 +119,12 @@ export function ManagerReplyComposer({
         <button
           type="submit"
           disabled={isPending || text.trim().length === 0}
+          aria-busy={isPending}
           className="font-heading shrink-0 rounded-xl bg-[#c8ff3d] px-5 py-3 text-sm font-bold tracking-wide text-black shadow-[0_0_28px_-8px_rgba(200,255,61,0.4)] transition hover:bg-[#d8ff6a] disabled:pointer-events-none disabled:opacity-50"
         >
-          {isPending ? "Отправка…" : "Отправить"}
+          <ButtonLoadingLabel isLoading={isPending} loadingText="Отправка…">
+            Отправить
+          </ButtonLoadingLabel>
         </button>
       </form>
       {state && "error" in state ? (

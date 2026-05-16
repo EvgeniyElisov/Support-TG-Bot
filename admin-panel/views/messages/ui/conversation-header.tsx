@@ -5,6 +5,7 @@ import { getAvatarInitial, getDisplayName } from "@/entities/message/lib";
 import type { MessageDialogRecord } from "@/entities/message/model/types";
 import { DialogStatusBadge, DialogStatusSelect } from "@/features/dialog-status";
 import { setClientAssignmentAction } from "@/features/client-assignment/api/set-client-assignment";
+import { ButtonLoadingLabel } from "@/shared/ui";
 
 type DialogViewer = {
   user_id: string;
@@ -28,7 +29,10 @@ export function ConversationHeader({
   claimedBy,
   typingLabel,
 }: ConversationHeaderProps) {
-  const [assignmentState, assignmentAction] = useActionState(setClientAssignmentAction, null);
+  const [assignmentState, assignmentAction, isAssigning] = useActionState(
+    setClientAssignmentAction,
+    null,
+  );
   const title = getDisplayName(dialog);
   const initial = getAvatarInitial(dialog);
   const otherViewers = (viewers ?? []).filter((v) => (sessionUserId ? v.user_id !== sessionUserId : true));
@@ -103,9 +107,13 @@ export function ConversationHeader({
               <input type="hidden" name="assigned_to" value={sessionUserId} />
               <button
                 type="submit"
-                className="font-heading rounded-xl bg-[#c8ff3d] px-4 py-2.5 text-sm font-extrabold tracking-wide text-black shadow-[0_0_28px_-10px_rgba(200,255,61,0.45)] transition hover:bg-[#d8ff6a]"
+                disabled={isAssigning}
+                aria-busy={isAssigning}
+                className="font-heading rounded-xl bg-[#c8ff3d] px-4 py-2.5 text-sm font-extrabold tracking-wide text-black shadow-[0_0_28px_-10px_rgba(200,255,61,0.45)] transition hover:bg-[#d8ff6a] disabled:cursor-wait disabled:opacity-60"
               >
-                Назначить на себя
+                <ButtonLoadingLabel isLoading={isAssigning} loadingText="Назначение…">
+                  Назначить на себя
+                </ButtonLoadingLabel>
               </button>
               {assignmentState?.error ? (
                 <p className="mt-1 text-xs text-rose-200">{assignmentState.error}</p>

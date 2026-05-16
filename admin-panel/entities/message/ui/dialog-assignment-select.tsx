@@ -3,6 +3,7 @@
 import { useActionState } from "react";
 
 import { setClientAssignmentAction } from "@/features/client-assignment/api/set-client-assignment";
+import { Spinner } from "@/shared/ui";
 
 import type { ManagerDirectoryEntry, MessageDialogRecord } from "../model/types";
 
@@ -26,7 +27,7 @@ export function DialogAssignmentSelect({
   sessionUserId,
   isActive = false,
 }: DialogAssignmentSelectProps) {
-  const [state, formAction] = useActionState(setClientAssignmentAction, null);
+  const [state, formAction, isPending] = useActionState(setClientAssignmentAction, null);
   const currentValue = dialog.current_manager_id ?? "";
   const orphanAssigned =
     currentValue &&
@@ -64,7 +65,9 @@ export function DialogAssignmentSelect({
         onChange={(e) => {
           e.currentTarget.form?.requestSubmit();
         }}
-        className={`w-full rounded-xl border px-3 py-2 text-[13px] font-semibold ${
+        disabled={isPending}
+        aria-busy={isPending}
+        className={`w-full rounded-xl border px-3 py-2 text-[13px] font-semibold disabled:cursor-wait disabled:opacity-60 ${
           isActive
             ? "border-[#c8ff3d]/35 bg-black/60 text-zinc-100"
             : "border-white/15 bg-black/40 text-zinc-100"
@@ -82,6 +85,12 @@ export function DialogAssignmentSelect({
           </option>
         ))}
       </select>
+      {isPending ? (
+        <p className={`mt-1 flex items-center gap-1.5 text-[10px] ${labelMetaClass}`}>
+          <Spinner className="h-3 w-3" />
+          Сохранение…
+        </p>
+      ) : null}
       {state?.error ? (
         <p
           className={`mt-1 text-xs ${isActive ? "text-rose-200" : "text-rose-400/90"}`}
