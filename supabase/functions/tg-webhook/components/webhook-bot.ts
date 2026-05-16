@@ -1,8 +1,22 @@
 import { Bot, type Context, webhookCallback } from "grammy"
+
+import { isDialogAssignedToManager } from "./dialog-assignment.ts"
 import { getIncomingPreview } from "./incoming-preview.ts"
+import { persistBotOutbound } from "./persist-bot-outbound.ts"
 import { persistIncomingMessage } from "./persist-message.ts"
 import { generateRagAnswer, RagNotReadyError } from "./rag.ts"
-import { getSupabaseAdmin } from "./supabase-admin.ts"
+
+const START_REPLY = [
+  "Здравствуйте! Чем могу помочь?",
+  "Подскажу по заказу, доставке, сборке, возврату, гарантии и комплектации — отвечу на основе доступной информации.",
+  "Также могу помочь с вопросами по каталогу, материалам и ориентировочным ценам.",
+].join("\n")
+
+const KB_NOT_READY_REPLY =
+  "Сейчас я не могу ответить по базе знаний. Попробуйте повторить чуть позже или переформулируйте вопрос."
+
+const GENERIC_ERROR_REPLY =
+  "Не получилось сформировать ответ. Попробуйте переформулировать вопрос или повторите позже."
 
 /** Сборка Bot, обработчики message / edited_message, HTTP-адаптер std/http для вебхука. */
 export function createWebhookHandler(token: string) {
@@ -14,6 +28,16 @@ export function createWebhookHandler(token: string) {
     return command === "/start" || command.startsWith("/start@")
   }
 
+  function getMessageText(ctx: Context): string | null {
+    if (!ctx.msg) return null
+    return ("text" in ctx.msg && ctx.msg.text) || ("caption" in ctx.msg && ctx.msg.caption) || null
+  }
+
+  async function replyAndPersist(clientId: string | null, text: string, ctx: Context): Promise<void> {
+    await ctx.reply(text)
+    if (clientId) await persistBotOutbound(clientId, text)
+  }
+
   async function onMessageOrEdited(ctx: Context) {
     const from = ctx.from
     const fromLabel = from
@@ -23,14 +47,8 @@ export function createWebhookHandler(token: string) {
     if (!ctx.msg) return
 
     if (isStartCommand(ctx)) {
-      await ctx.reply(
-        [
-          "Здравствуйте! Чем могу помочь?",
-          "Подскажу по заказу, доставке, сборке, возврату, гарантии и комплектации — отвечу на основе доступной информации.",
-          "Также могу помочь с вопросами по каталогу, материалам и ориентировочным ценам.",
-          "",
-        ].join("\n"),
-      )
+      const clientId = await persistIncomingMessage(ctx.msg)
+      await replyAndPersist(clientId, START_REPLY, ctx)
       return
     }
 
@@ -38,57 +56,24 @@ export function createWebhookHandler(token: string) {
 
     // RAG-ответ только на новые сообщения (не на edits) и только когда есть текст.
     if (ctx.update.edited_message) return
-    const text =
-      ("text" in ctx.msg && ctx.msg.text) || ("caption" in ctx.msg && ctx.msg.caption) || null
+    const text = getMessageText(ctx)
     if (!text) return
 
-    // If the dialog is assigned to a manager, do not auto-reply as a bot.
-    if (clientId) {
-      const db = getSupabaseAdmin()
-      if (db) {
-        const { data: assignment, error: assignError } = await db
-          .from("client_assignments")
-          .select("current_manager_id")
-          .eq("client_id", clientId)
-          .maybeSingle()
-
-        if (assignError) {
-          console.error("[client_assignments] Ошибка чтения:", assignError.message)
-        } else if (assignment?.current_manager_id) {
-          return
-        }
-      }
+    if (clientId && (await isDialogAssignedToManager(clientId))) {
+      return
     }
 
     try {
       const { answer } = await generateRagAnswer(text)
-      await ctx.reply(answer)
-
-      // Persist bot reply to the same dialog so managers can see what was sent.
-      if (clientId) {
-        const db = getSupabaseAdmin()
-        const nowIso = new Date().toISOString()
-        if (db) {
-          const { error } = await db.from("messages").insert({
-            client_id: clientId,
-            text_content: answer,
-            direction: "outbound",
-            delivered_at: nowIso,
-            sent_by_manager_id: null,
-          })
-          if (error) console.error("[messages] Ошибка сохранения bot-reply:", error.message)
-        }
-      }
+      await replyAndPersist(clientId, answer, ctx)
     } catch (e) {
       console.error("[rag]", e)
       if (e instanceof RagNotReadyError) {
-        await ctx.reply(
-          "Сейчас я не могу ответить по базе знаний. Попробуйте повторить чуть позже или переформулируйте вопрос.",
-        )
+        await replyAndPersist(clientId, KB_NOT_READY_REPLY, ctx)
         return
       }
 
-      await ctx.reply("Не получилось сформировать ответ. Попробуйте переформулировать вопрос или повторите позже.")
+      await replyAndPersist(clientId, GENERIC_ERROR_REPLY, ctx)
     }
   }
 

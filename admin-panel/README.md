@@ -26,4 +26,7 @@ npm run dev
 Для переиндексации базы знаний:
 - `EMBEDDINGS_API_KEY` (или `OPENAI_API_KEY`)
 
+Для отправки ответов менеджера в Telegram (server action):
+- `TELEGRAM_BOT_TOKEN`
+
 Подробности см. в корневом `README.md`.

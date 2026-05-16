@@ -135,7 +135,12 @@ export async function sendManagerReplyAction(
   if (messageId) {
     await supabase
       .from("messages")
-      .update({ delivered_at: new Date().toISOString(), failed_at: null, send_error: null })
+      .update({
+        text_content: telegramText,
+        delivered_at: new Date().toISOString(),
+        failed_at: null,
+        send_error: null,
+      })
       .eq("id", messageId);
   }
 

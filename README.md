@@ -90,7 +90,8 @@ supabase secrets set EMBEDDINGS_API_KEY=...
 | `NEXT_PUBLIC_SITE_URL` | ссылка для reset-password flow |
 | `EMBEDDINGS_API_KEY` **или** `OPENAI_API_KEY` | пересчёт векторов при “Переиндексировать” |
 
-> Админке **не нужны** `SUPABASE_SERVICE_ROLE_KEY`, `TELEGRAM_BOT_TOKEN`, `DEEPSEEK_API_KEY`.
+> Админке **не нужны** `SUPABASE_SERVICE_ROLE_KEY` и `DEEPSEEK_API_KEY`.
+> Для **ответов менеджера в Telegram** на Vercel нужен `TELEGRAM_BOT_TOKEN` (server-only, без `NEXT_PUBLIC_`).
 
 ## База знаний и RAG (как это работает)
 
